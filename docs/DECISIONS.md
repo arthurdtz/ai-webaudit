@@ -89,3 +89,31 @@ Aprovado sem ajustes. Decisões a.1–a.6, b (agrupamento SPEC §4.2), c (lock +
 - O validador sai com 0 (válido), 1 (inválido) ou 2 (uso/leitura).
 - `ajv` fixado em 8.20.0 e `ajv-formats` em 3.0.1; `scripts/package-lock.json` versionado, `node_modules/` ignorado.
 - `PREVENTIVO` **não** tem teto de severidade no schema (a SPEC não define); o teto de MELHORIA vale para "prática sem garantia" e é responsabilidade da referência/subagente.
+
+## Etapa 3 — Referências de busca e IA (2026-11-05)
+
+### Fronteiras resolvidas (cada verificação tem uma área dona)
+- **GEO × CONT:** claim-level (afirmação sem fonte/número) = `GEO`; page-level (autor, data, profundidade) = `CONT`.
+- **LOC × CONT:** NAP/horário/mapa corretos = `LOC`; "sobre"/contato como identificação de quem opera o site = `CONT`.
+- **AEO × AIO:** resposta existe mas mal estruturada = `AEO`; resposta escondida (abas, PDF, imagem) ou fora do HTML = `AIO`.
+- **SEO-C15** é dono da validade técnica de JSON-LD; `GEO-C02`, `LOC-C03`, `CONT-C01/C02` só tratam coerência semântica e referenciam `SEO-C15`.
+- **AIO-C04 × SEO-C16:** mesma causa raiz (conteúdo só via JS): `SEO-C16` pode ser `IMPORTANTE` (base oficial do Google); `AIO-C04` no máximo `MELHORIA`, com `related_ids`.
+
+### Fatos que mudaram desde o conhecimento prévio (verificados na fonte)
+- **FAQ rich result** deixou de aparecer na Pesquisa Google em **07/05/2026**; documentação removida em 15/06/2026 (leitura parcial da página `search/updates`). **HowTo** removido em 09/2023. Outros descontinuados: Sitelinks search box, Practice problem, Special announcement, Course info, Estimated salary, Learning video, Vehicle listing.
+- **`Google-Extended`** é só um token de robots (sem user-agent próprio): controla treino/*grounding* de Gemini; **não** afeta Pesquisa nem AI Overviews.
+- **OpenAI** agora documenta `OAI-SearchBot`, `GPTBot`, `ChatGPT-User` e `OAI-AdsBot` em `developers.openai.com/api/docs/bots`. **Anthropic:** `ClaudeBot`, `Claude-User`, `Claude-SearchBot` (`anthropic-ai` não consta). **Perplexity:** `PerplexityBot`, `Perplexity-User`.
+- `llms.txt` segue como proposta (llmstxt.org, v2 de 10/08/2026); o Google diz que não são necessários arquivos/marcação para IA.
+- Google: **não há limite oficial** de tamanho de `<title>`/meta description nem contagem ideal de palavras; **E-E-A-T não é fator de ranking**.
+
+### Lacunas e limites de fonte (honestidade de evidência)
+- Páginas de ajuda do **Bing Webmaster** (Webmaster Guidelines, AI Performance, AI Preferences) retornaram só o título; **nenhuma regra foi baseada nelas**. Usadas apenas as postagens do blog Bing/Microsoft Advertising (08/10/2025 e 10/02/2026, 05/2026).
+- **Diretrizes de Avaliadores de Qualidade:** só via resumo de busca (PDF não lido); usadas como contexto, não como regra.
+- **Política de avaliações do GBP** (`support.google.com/business/answer/9801187`, 404): não consultada; `LOC-C10` não detalha regras de avaliações.
+- **Artigo GEO (KDD 2024):** só o abstract foi lido; o "até 40%" aparece como evidência de pesquisa, nunca como promessa.
+- `google-special-case-crawlers` não lista `Google-Extended`; a fonte usada é `google-common-crawlers`.
+- Páginas muito longas (`search/updates`, `sub-agents`, `hooks`) foram lidas só nos primeiros ~100 mil caracteres.
+
+### Para as Etapas 6 e 10
+- `ai-visibility` cobre 4 referências (02, 03, 04, 13 = 33 verificações): é o subagente mais pesado; considerar `model` e instruções de leitura seletiva na Etapa 6.
+- Checks `manual` (LOC-C08…C11, GEO-C07, AEO-C06, CONT-C11, AIO-C02) devem sair como `not_tested`, não como achados.

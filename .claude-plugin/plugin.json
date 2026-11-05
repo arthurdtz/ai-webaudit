@@ -1,0 +1,6 @@
+{
+  "name": "ai-webaudit",
+  "version": "0.1.0",
+  "description": "AI-powered multi-agent website auditing, optimization and quality assurance.",
+  "author": { "name": "Arthur Meneses" }
+}

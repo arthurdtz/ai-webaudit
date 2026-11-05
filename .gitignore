@@ -1,0 +1,7 @@
+node_modules/
+.webaudit/
+.env*
+!tests/fixtures/sample-site/.env
+*.log
+*.tmp
+.DS_Store

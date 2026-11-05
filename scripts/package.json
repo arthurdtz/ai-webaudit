@@ -1,0 +1,12 @@
+{
+  "name": "ai-webaudit-scripts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dependências e scripts do plugin AI WebAudit (nunca instaladas no projeto alvo).",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1"
+  }
+}

@@ -75,5 +75,17 @@ Justificativa: cada grupo lê as mesmas evidências (HTML/head, conteúdo, scrip
 ## Etapa 1 — GitHub
 - `gh repo view arthurdtz/ai-webaudit`: **não existe** (verificado em 2026-11-05).
 
-- Repositório privado criado e publicado: https://github.com/arthurdtz/ai-webaudit (branch `main`).
+- Repositório criado como privado e, por decisão do usuário (2026-11-05), **tornado público** (contribuição à comunidade). URL: https://github.com/arthurdtz/ai-webaudit (branch `main`).
 - Arquivos de prompt das etapas (`01`–`10-*.md`, `LEIA-ME.md`) ficaram **fora do commit** (não rastreados) por não serem parte do plugin; decidir se vão para `docs/prompts/`.
+
+## Checkpoint da Etapa 1 — APROVADO (2026-11-05)
+Aprovado sem ajustes. Decisões a.1–a.6, b (agrupamento SPEC §4.2), c (lock + hook do plugin, fail-closed com lock) e d (`claude -p` sem `--bare`) valem para as próximas etapas. Skill = `pre-launch`.
+
+## Etapa 2 — Decisões de contrato (2026-11-05)
+- Enums de `evidence.type` (não definidos na SPEC): `codigo`, `configuracao`, `comando`, `http`, `ferramenta`, `captura`, `ausencia`. Evidência exige `type` + ao menos um de `file`, `command`, `raw_ref`.
+- Schema: campos de metadados do run ficam no topo do `findings.json`, ao lado de `findings[]`; `additionalProperties: false` em todos os objetos (exceto `stack`).
+- Regra CRÍTICO (SPEC §7.1) está no schema (`allOf`) e repetida em `validate-findings.mjs` com mensagem legível.
+- Regras semânticas só no validador: id único, prefixo do id e do `check_id` = área, área achada ∈ `areas_selected`, `related_ids` existentes, auditorias só gravam `fix_status: aberto`, área não pode estar em selecionadas e excluídas, **segredos não mascarados** (heurística por padrões comuns; não substitui revisão).
+- O validador sai com 0 (válido), 1 (inválido) ou 2 (uso/leitura).
+- `ajv` fixado em 8.20.0 e `ajv-formats` em 3.0.1; `scripts/package-lock.json` versionado, `node_modules/` ignorado.
+- `PREVENTIVO` **não** tem teto de severidade no schema (a SPEC não define); o teto de MELHORIA vale para "prática sem garantia" e é responsabilidade da referência/subagente.

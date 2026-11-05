@@ -1,0 +1,146 @@
+{
+  "run_id": "2026-11-05",
+  "skill": "audit",
+  "arguments": "--static-only",
+  "target_path": "/tmp/exemplo-site",
+  "git": {
+    "is_repo": true,
+    "commit": "0123abc",
+    "branch": "main",
+    "dirty": false
+  },
+  "collection_modes": [
+    "estatica"
+  ],
+  "areas_selected": [
+    "SEO",
+    "SEC",
+    "QA"
+  ],
+  "areas_excluded": [
+    {
+      "area": "LOC",
+      "reason": "Sem sinal de negócio com localização física."
+    }
+  ],
+  "tools": [
+    {
+      "name": "leitura-estatica",
+      "version": null,
+      "status": "ok"
+    }
+  ],
+  "not_tested": [
+    {
+      "area": "OPS",
+      "check_id": "OPS-C03",
+      "description": "Monitoramento de disponibilidade.",
+      "reason": "Depende de serviço externo; verificação manual."
+    }
+  ],
+  "generated_at": "2026-11-05T14:30:00Z",
+  "findings": [
+    {
+      "id": "WA-SEC-1",
+      "check_id": "SEC-C02",
+      "area": "SEC",
+      "title": "Chave de serviço em arquivo versionado",
+      "description": "Arquivo de configuração versionado contém chave de API de serviço externo.",
+      "severity": "GRAVISSIMO",
+      "nature": "RISCO_POTENCIAL",
+      "verification": "estatica",
+      "evidence": [
+        {
+          "type": "codigo",
+          "file": "config.js",
+          "line": 3,
+          "snippet": "const apiKey = \"AKIA****\";"
+        }
+      ],
+      "impact": "Quem acessar o repositório pode usar a chave.",
+      "recommendation": "Revogar a chave, mover para variável de ambiente no servidor e remover do histórico.",
+      "validation_criteria": "Busca por padrões de segredo no repositório não retorna ocorrências.",
+      "effort": "M",
+      "fix_status": "aberto",
+      "related_ids": [],
+      "tradeoffs": []
+    },
+    {
+      "id": "WA-SEO-001",
+      "check_id": "SEO-C01",
+      "area": "SEO",
+      "title": "noindex no layout global",
+      "description": "O layout compartilhado declara robots noindex.",
+      "severity": "CRITICO",
+      "nature": "RISCO_POTENCIAL",
+      "verification": "estatica",
+      "evidence": [
+        {
+          "type": "codigo",
+          "file": "layout.html",
+          "line": 5,
+          "snippet": "<meta name=\"robots\" content=\"noindex\">"
+        }
+      ],
+      "impact": "As páginas não serão indexadas pelos buscadores.",
+      "recommendation": "Remover a meta robots do layout.",
+      "validation_criteria": "HTML final das páginas não contém noindex.",
+      "effort": "P",
+      "fix_status": "aberto",
+      "related_ids": [
+        "WA-QA-999"
+      ],
+      "tradeoffs": []
+    },
+    {
+      "id": "WA-QA-001",
+      "check_id": "SEO-C05",
+      "area": "QA",
+      "title": "Texto placeholder em página pública",
+      "description": "A página inicial contém texto de exemplo.",
+      "severity": "IMPORTANTE",
+      "nature": "CONFIRMADO",
+      "verification": "estatica",
+      "evidence": [
+        {
+          "type": "codigo"
+        }
+      ],
+      "impact": "Visitantes veem conteúdo não finalizado.",
+      "recommendation": "Substituir pelo conteúdo definitivo.",
+      "validation_criteria": "Busca por 'lorem ipsum' não retorna ocorrências nas páginas públicas.",
+      "effort": "P",
+      "fix_status": "aberto",
+      "related_ids": [
+        "WA-SEO-001"
+      ],
+      "tradeoffs": [],
+      "snippet_extra": "x"
+    },
+    {
+      "id": "WA-SEC-002",
+      "check_id": "SEC-C02",
+      "area": "SEC",
+      "title": "Chave de serviço em arquivo versionado",
+      "description": "Arquivo de configuração versionado contém chave de API de serviço externo.",
+      "severity": "CRITICO",
+      "nature": "RISCO_POTENCIAL",
+      "verification": "estatica",
+      "evidence": [
+        {
+          "type": "codigo",
+          "file": "a.js",
+          "line": 1,
+          "snippet": "key = \"AKIAIOSFODNN7EXAMPLE\""
+        }
+      ],
+      "impact": "Quem acessar o repositório pode usar a chave.",
+      "recommendation": "Revogar a chave, mover para variável de ambiente no servidor e remover do histórico.",
+      "validation_criteria": "Busca por padrões de segredo no repositório não retorna ocorrências.",
+      "effort": "M",
+      "fix_status": "aberto",
+      "related_ids": [],
+      "tradeoffs": []
+    }
+  ]
+}

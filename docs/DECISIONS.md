@@ -74,3 +74,6 @@ Justificativa: cada grupo lê as mesmas evidências (HTML/head, conteúdo, scrip
 
 ## Etapa 1 — GitHub
 - `gh repo view arthurdtz/ai-webaudit`: **não existe** (verificado em 2026-11-05).
+
+- Repositório privado criado e publicado: https://github.com/arthurdtz/ai-webaudit (branch `main`).
+- Arquivos de prompt das etapas (`01`–`10-*.md`, `LEIA-ME.md`) ficaram **fora do commit** (não rastreados) por não serem parte do plugin; decidir se vão para `docs/prompts/`.

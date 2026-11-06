@@ -148,3 +148,42 @@ Aprovado sem ajustes. Decisões a.1–a.6, b (agrupamento SPEC §4.2), c (lock +
 - Subagente `conversion` = CRO + ANL (19 verificações); `release-qa` = QA + OPS (27); `performance` = 13; `accessibility` = 14.
 - Verificações que exigem `ativa-local`: A11Y (axe + capturas), PERF (Lighthouse), QA-C05/C06/C12, CRO capturas. A fixture deve cobrir esses modos.
 - Checks `manual` sempre saem como `not_tested`: OPS-C01…C04, C06…C09, C12, C13; A11Y-C14; QA-C14; ANL-C10; PERF-C02.
+
+## Etapa 5 — Referências de privacidade e segurança (2026-11-05)
+
+### Decisões de método
+- **PRIV (10):** cada verificação traz `[LEI art. X]`, `[ANPD]` ou `[PRÁTICA]`. O **Guia da ANPD de cookies** (v1.0, out/2022) é **orientativo/boas práticas**, não norma vinculante; foi lido **na íntegra** (PDF baixado para o scratchpad e extraído localmente com `pypdf` em venv descartável). Pontos centrais: consentimento para cookies **não necessários**; legítimo interesse possível para **necessários** e, **em certos contextos, medição de audiência**; **dificilmente** para publicidade. Logo, **analytics antes do consentimento não é irregular por definição**; pixels de publicidade/perfilamento são o indício forte.
+- **A LGPD não cita "banner de cookies"**; o banner é instrumento de transparência segundo o guia. O texto da lei foi lido em `planalto.gov.br` (arts. 5–9, 14, 18, 33, 37, 41, 46, 48).
+- **CRITICO em PRIV** só com ação observada **e** ausência total de mecanismo de consentimento com pixels de publicidade/terceiros (PRIV-C01). O relatório nunca diz "viola a LGPD".
+- **API (14) e SEC (15):** só detecção segura; **nenhuma sondagem** de rotas, `Origin` forjado, autenticação ou carga contra o site publicado. Remoto = apenas as GET já previstas e seus cabeçalhos. Sem *payloads* nem instruções de exploração.
+- **CRITICO em API/SEC** sempre com `file`+`snippet` (e `CONFIRMADO`, ou `RISCO_POTENCIAL` só nos casos permitidos pelo schema: áreas SEC/API/PRIV). Cabeçalho ausente nunca é `CRITICO`.
+- **Segredos:** credenciais viram evidência mascarada. Ordem de resposta a vazamento (OWASP): **revogar → rotacionar → remover**; limpar histórico não é correção suficiente. O plugin **nunca** revoga chaves nem reescreve histórico.
+- **Segredos com marcador explícito de falso** (`FAKE`, `EXAMPLE`, `CHANGEME`) → `MELHORIA` (padrão de segredo versionado). **Consequência para a Etapa 6:** o `.env` da fixture (`FAKE-SECRET-FOR-TESTS-0000`) deve entrar em `must_find` com severidade mínima **`MELHORIA`**, não `CRITICO`; para testar `CRITICO` seria preciso um valor com forma de credencial real, o que conflita com a regra da SPEC (não disparar *secret scanning* do GitHub). Decidir na Etapa 6.
+- **`npm audit` (SEC-C02)** envia a lista de dependências ao registro do npm: exige **confirmação** do usuário e **nunca** `install`/`audit fix` no alvo.
+
+### Fronteiras resolvidas
+- **API × SEC (segredos):** repositório/histórico = `SEC-C01`; variável pública/cliente = `API-C11`.
+- **API × SEC (autenticação):** autorização por endpoint/BOLA = `API-C08`; login/sessão/senha/CSRF = `SEC`.
+- **SEC × OPS (dependências):** vulnerabilidade concreta = `SEC-C02`; rotina = `OPS-C05`.
+- **PRIV × ANL:** disparo e base legal = `PRIV`; instalação e PII em eventos = `ANL`.
+- **Headers de segurança** são sempre `API`; `Cache-Control` de desempenho = `PERF-C10`.
+
+### Fatos que mudaram desde o conhecimento prévio (verificados na fonte)
+- **OWASP Top 10:2025** é a edição atual (A01 Broken Access Control — **SSRF incorporado**; A02 Security Misconfiguration; A03 Software Supply Chain Failures; A04 Cryptographic Failures; A05 Injection; A06 Insecure Design; A07 Authentication Failures; A08 Software or Data Integrity Failures; A09 Security Logging & Alerting Failures; A10 **Mishandling of Exceptional Conditions** — novo). Páginas individuais **não lidas**.
+- **OWASP API Security Top 10:2023** (API1 BOLA … API10 Unsafe Consumption of APIs); apenas API1, API2, API4 e API8 foram lidas por página.
+- `X-XSS-Protection` está **desencorajado** pelo OWASP; **a documentação da Vercel ainda o usa em exemplo** (`1; mode=block`) — armadilha registrada em `API-C05`. `Expect-CT` e HPKP **removidos**. `X-Frame-Options` **superado** por `frame-ancestors`.
+- Headers de hosting: **Netlify e Cloudflare Pages não aplicam `_headers` a respostas de Functions**; Cloudflare: 100 regras/2.000 caracteres por linha.
+- Resolução **CD/ANPD nº 15/2024**: três dias úteis para comunicar incidente; Resolução **18/2024**: encarregado.
+
+### Lacunas e limites de fonte
+- **Resolução CD/ANPD nº 18/2024 (detalhes da divulgação do encarregado)** e **nº 15/2024 (prazos em dobro, 20 dias úteis, registro de 5 anos)** vieram de **resumo de busca**; as páginas oficiais da ANPD confirmam só o essencial (publicação do ato; três dias úteis; critérios de risco relevante). Texto integral **não lido** → `PRIV-C06` e `PRIV-C11` com aviso.
+- **Dispensa do encarregado para agentes de pequeno porte** (Res. CD/ANPD 2/2022) **não verificada**.
+- **Artigo 11 e 16 da LGPD** só via citação do guia da ANPD.
+- **Não consultados:** OWASP ASVS; Cheat Sheets de comando/NoSQL/DOM XSS; MDN SRI, `Set-Cookie`, `Referrer-Policy`, `Permissions-Policy`; OSV e auditores de outros ecossistemas; WAF/rate limit de Vercel/Cloudflare/Netlify; convenções `REACT_APP_`/`NUXT_PUBLIC_`/`GATSBY_`; SSL/TLS.
+- A página do OWASP de XSS **não lista** `v-html`/`{{{ }}}`/`|safe`: tratados "por analogia" com aviso.
+- Material auxiliar baixado (PDF da ANPD) ficou no scratchpad da sessão, **fora do repositório**.
+
+### Para as Etapas 6 e 10
+- `security` agrega **26 verificações** (14 + 12): subagente mais pesado depois de `ai-visibility` (33); considerar `model` e leitura seletiva por área. `privacy` = 11.
+- Checks `manual` → `not_tested`: PRIV-C11, API-C14, SEC-C12 (e parte de PRIV-C04/C06).
+- Todas as 15 áreas têm verificações `estatica` (mínimo: 6 em OPS/GEO/AEO) — a fixture pode cobrir as 15.

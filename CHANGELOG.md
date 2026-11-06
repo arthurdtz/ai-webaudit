@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Etapa 5 — Referências: privacidade e segurança
+- `references/10-privacy-lgpd.md` (11 verificações), `14-security-api-edge.md` (14), `15-security-appsec.md` (12). Total das referências 01–15: 170 verificações.
+
 ### Etapa 4 — Referências: experiência e produto
 - `references/05-cro-landing-pages.md` (9 verificações), `06-qa-pre-launch.md` (14), `07-analytics-tracking.md` (10), `08-performance-cwv.md` (13), `09-accessibility.md` (14), `12-post-launch-maintenance.md` (13), no modelo de `shared/reference-template.md`, com fontes consultadas em 2026-11-05.
 

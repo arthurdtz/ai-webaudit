@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+
+User-agent: OAI-SearchBot
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: Claude-SearchBot
+Disallow: /
+
+Sitemap: https://www.belavistaodonto.example/sitemap.xml

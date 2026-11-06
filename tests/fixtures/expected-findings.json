@@ -1,0 +1,311 @@
+{
+  "fixture": "sample-site",
+  "version": 1,
+  "description": "Gabarito da fixture tests/fixtures/sample-site (Sorriso Bela Vista Odontologia, negócio fictício). Veja tests/fixtures/README.md.",
+  "scoring": {
+    "must_find_min_ratio": 0.8,
+    "must_not_flag_max": 0,
+    "severity_order": [
+      "OPCIONAL",
+      "MELHORIA",
+      "IMPORTANTE",
+      "CRITICO"
+    ],
+    "semantics": {
+      "must_find": "Existe achado com este check_id cujas evidências citam este arquivo (ou parte dele) e severidade >= min_severity.",
+      "must_not_flag": "Não existe achado com este check_id e severidade >= MELHORIA cujas evidências citem este arquivo; quando 'match' existe, só conta a evidência cujo snippet/arquivo contenha um dos termos (separados por |)."
+    }
+  },
+  "must_find": [
+    {
+      "id": "F01",
+      "check_id": "SEO-C01",
+      "area": "SEO",
+      "file": "servicos.html",
+      "min_severity": "IMPORTANTE",
+      "planted": "Meta `noindex` numa página de serviços que deve ser indexável."
+    },
+    {
+      "id": "F02",
+      "check_id": "SEO-C06",
+      "area": "SEO",
+      "file": "index.html",
+      "min_severity": "IMPORTANTE",
+      "planted": "Canonical da home aponta para o host de staging (`staging.belavistaodonto.example`)."
+    },
+    {
+      "id": "F03",
+      "check_id": "SEO-C07",
+      "area": "SEO",
+      "file": "servicos.html",
+      "min_severity": "IMPORTANTE",
+      "planted": "`<title>Página</title>` genérico e idêntico em `servicos.html` e `contato.html`."
+    },
+    {
+      "id": "F04",
+      "check_id": "GEO-C03",
+      "area": "GEO",
+      "file": "index.html",
+      "min_severity": "MELHORIA",
+      "planted": "Hero com superlativos vagos (\"líder\", \"inovadoras e de ponta\", \"o melhor\") sem dado verificável."
+    },
+    {
+      "id": "F05",
+      "check_id": "AEO-C01",
+      "area": "AEO",
+      "file": "index.html",
+      "min_severity": "MELHORIA",
+      "planted": "Títulos de seção genéricos (\"Saiba mais\", \"Detalhes\") em conteúdo informativo."
+    },
+    {
+      "id": "F06",
+      "check_id": "AIO-C01",
+      "area": "AIO",
+      "file": "robots.txt",
+      "min_severity": "MELHORIA",
+      "planted": "Bloqueia `OAI-SearchBot`, `PerplexityBot` e `Claude-SearchBot` (agentes de busca de IA) sem política declarada."
+    },
+    {
+      "id": "F07",
+      "check_id": "CRO-C08",
+      "area": "CRO",
+      "file": "index.html",
+      "min_severity": "IMPORTANTE",
+      "planted": "Link de WhatsApp fora do formato oficial (`wa.me/+55-(11)-…` com `+`, parênteses e travessões)."
+    },
+    {
+      "id": "F08",
+      "check_id": "QA-C10",
+      "area": "QA",
+      "file": "servicos.html",
+      "min_severity": "IMPORTANTE",
+      "planted": "Texto `lorem ipsum` visível na seção \"Nossa equipe\"."
+    },
+    {
+      "id": "F09",
+      "check_id": "QA-C11",
+      "area": "QA",
+      "file": "js/main.js",
+      "min_severity": "CRITICO",
+      "planted": "Destino do formulário de contato aponta para `http://localhost:3000` (quebra em produção)."
+    },
+    {
+      "id": "F10",
+      "check_id": "ANL-C01",
+      "area": "ANL",
+      "file": "js/analytics.js",
+      "min_severity": "IMPORTANTE",
+      "planted": "ID de medição GA4 placeholder (`G-XXXXXXXXXX`) e Pixel com ID de zeros."
+    },
+    {
+      "id": "F11",
+      "check_id": "ANL-C08",
+      "area": "ANL",
+      "file": "js/main.js",
+      "min_severity": "CRITICO",
+      "planted": "Evento `generate_lead` envia e-mail e telefone digitados ao analytics (PII clara)."
+    },
+    {
+      "id": "F12",
+      "check_id": "PERF-C04",
+      "area": "PERF",
+      "file": "index.html",
+      "min_severity": "IMPORTANTE",
+      "planted": "`loading=\"lazy\"` na imagem do hero (candidata a LCP, acima da dobra)."
+    },
+    {
+      "id": "F13",
+      "check_id": "A11Y-C03",
+      "area": "A11Y",
+      "file": "dicas.html",
+      "min_severity": "IMPORTANTE",
+      "planted": "`<html>` sem atributo `lang`."
+    },
+    {
+      "id": "F14",
+      "check_id": "A11Y-C02",
+      "area": "A11Y",
+      "file": "index.html",
+      "min_severity": "IMPORTANTE",
+      "planted": "Imagem informativa do hero (`img/hero.svg`) sem atributo `alt`."
+    },
+    {
+      "id": "F15",
+      "check_id": "A11Y-C05",
+      "area": "A11Y",
+      "file": "index.html",
+      "min_severity": "IMPORTANTE",
+      "planted": "Formulário \"Orçamento rápido\" com campos só com `placeholder`, sem rótulo programático."
+    },
+    {
+      "id": "F16",
+      "check_id": "A11Y-C09",
+      "area": "A11Y",
+      "file": "index.html",
+      "min_severity": "IMPORTANTE",
+      "planted": "`<meta viewport>` com `user-scalable=no` e `maximum-scale=1` (bloqueia zoom)."
+    },
+    {
+      "id": "F17",
+      "check_id": "PRIV-C01",
+      "area": "PRIV",
+      "file": "js/analytics.js",
+      "min_severity": "IMPORTANTE",
+      "planted": "GA4 e Meta Pixel carregam incondicionalmente, sem mecanismo de consentimento no site."
+    },
+    {
+      "id": "F18",
+      "check_id": "PRIV-C04",
+      "area": "PRIV",
+      "file": "contato.html",
+      "min_severity": "IMPORTANTE",
+      "planted": "Formulário coleta dados pessoais e o site não tem política de privacidade."
+    },
+    {
+      "id": "F19",
+      "check_id": "LOC-C02",
+      "area": "LOC",
+      "file": "index.html",
+      "min_severity": "MELHORIA",
+      "planted": "Telefone do rodapé (98765-4321) diverge do telefone da página de contato e do JSON-LD (91234-5678)."
+    },
+    {
+      "id": "F20",
+      "check_id": "LOC-C03",
+      "area": "LOC",
+      "file": "index.html",
+      "min_severity": "IMPORTANTE",
+      "planted": "`Dentist` com `aggregateRating` do próprio negócio e endereço do JSON-LD (nº 321) diferente do rodapé (nº 123)."
+    },
+    {
+      "id": "F21",
+      "check_id": "CONT-C02",
+      "area": "CONT",
+      "file": "dicas.html",
+      "min_severity": "IMPORTANTE",
+      "planted": "JSON-LD com `datePublished` no futuro (2027) contradiz a data visível (10/01/2025)."
+    },
+    {
+      "id": "F22",
+      "check_id": "OPS-C10",
+      "area": "OPS",
+      "file": ".well-known/security.txt",
+      "min_severity": "MELHORIA",
+      "planted": "`security.txt` com `Expires` vencido (2022)."
+    },
+    {
+      "id": "F23",
+      "check_id": "API-C07",
+      "area": "API",
+      "file": "api/contato.js",
+      "min_severity": "IMPORTANTE",
+      "planted": "CORS reflete qualquer `Origin` com `Access-Control-Allow-Credentials: true`."
+    },
+    {
+      "id": "F24",
+      "check_id": "API-C08",
+      "area": "API",
+      "file": "api/contato.js",
+      "min_severity": "CRITICO",
+      "planted": "`GET /api/contato` devolve a lista de leads sem nenhuma autenticação."
+    },
+    {
+      "id": "F25",
+      "check_id": "API-C05",
+      "area": "API",
+      "file": "vercel.json",
+      "min_severity": "MELHORIA",
+      "planted": "Cabeçalho `X-XSS-Protection: 1; mode=block` (desencorajado pelo OWASP)."
+    },
+    {
+      "id": "F26",
+      "check_id": "SEC-C03",
+      "area": "SEC",
+      "file": "js/main.js",
+      "min_severity": "CRITICO",
+      "planted": "`innerHTML` recebe `location.hash` sem codificação (XSS baseado em DOM)."
+    },
+    {
+      "id": "F27",
+      "check_id": "SEC-C04",
+      "area": "SEC",
+      "file": "api/contato.js",
+      "min_severity": "CRITICO",
+      "planted": "Consulta SQL montada por concatenação com dados da requisição."
+    },
+    {
+      "id": "F28",
+      "check_id": "SEC-C01",
+      "area": "SEC",
+      "file": ".env",
+      "min_severity": "MELHORIA",
+      "planted": "`.env` versionado com segredo de modelo (`FAKE-SECRET-FOR-TESTS-0000`): padrão de segredo versionado, não credencial utilizável."
+    }
+  ],
+  "must_not_flag": [
+    {
+      "id": "OK01",
+      "check_id": "A11Y-C03",
+      "file": "index.html",
+      "reason": "`<html lang=\"pt-BR\">` correto (também em `servicos.html` e `contato.html`)."
+    },
+    {
+      "id": "OK02",
+      "check_id": "A11Y-C02",
+      "file": "index.html",
+      "match": "logo.svg",
+      "reason": "Logo decorativo com `alt=\"\"` é correto; não é imagem sem texto alternativo."
+    },
+    {
+      "id": "OK03",
+      "check_id": "SEO-C06",
+      "file": "contato.html",
+      "reason": "Canonical absoluta, no `<head>`, autorreferente e com o host de produção."
+    },
+    {
+      "id": "OK04",
+      "check_id": "A11Y-C05",
+      "file": "contato.html",
+      "reason": "Todos os campos têm `<label for>`, `autocomplete` e tipos adequados."
+    },
+    {
+      "id": "OK05",
+      "check_id": "CRO-C08",
+      "file": "contato.html",
+      "reason": "Link `wa.me/5511987654321?text=…` no formato oficial, com mensagem codificada."
+    },
+    {
+      "id": "OK06",
+      "check_id": "PERF-C05",
+      "file": "contato.html",
+      "match": "contato.svg",
+      "reason": "Imagem do cabeçalho com `width` e `height`."
+    },
+    {
+      "id": "OK07",
+      "check_id": "PERF-C04",
+      "file": "index.html",
+      "match": "g1.svg|g2.svg|g3.svg",
+      "reason": "`loading=\"lazy\"` apenas na galeria abaixo da dobra, com dimensões declaradas."
+    },
+    {
+      "id": "OK08",
+      "check_id": "API-C04",
+      "file": "vercel.json",
+      "match": "nosniff",
+      "reason": "`X-Content-Type-Options: nosniff` presente."
+    },
+    {
+      "id": "OK09",
+      "check_id": "SEO-C07",
+      "file": "dicas.html",
+      "reason": "Título único e descritivo (também em `index.html`)."
+    },
+    {
+      "id": "OK10",
+      "check_id": "SEC-C01",
+      "file": "js/analytics.js",
+      "reason": "IDs de medição são públicos por natureza; não são segredos."
+    }
+  ]
+}

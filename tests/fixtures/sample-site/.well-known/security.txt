@@ -1,0 +1,3 @@
+Contact: mailto:seguranca@belavistaodonto.example
+Expires: 2022-12-31T23:59:59Z
+Preferred-Languages: pt, en

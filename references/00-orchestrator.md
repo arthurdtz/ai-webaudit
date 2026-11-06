@@ -12,7 +12,7 @@ Caminhos do plugin: usar `${CLAUDE_PLUGIN_ROOT}` no texto das skills (é expandi
 | **1 Reconhecimento** | alvo | Detectar stack, framework, scripts build/dev/preview, rotas/páginas, hosting, APIs, formulários, analytics, idioma, tipo de site. Preferir `scripts/detect-stack.mjs`; sem ele, leitura direta. | `context.json` |
 | **2 Seleção** | `context.json`, skill, `--areas` | Aplicar a matriz (§2). `audit` = todas as aplicáveis; `pre-launch` = foco definido na skill; `optimize` = derivadas do objetivo; `--areas` sobrescreve. Registrar excluídas + motivo. | `areas_selected`, `areas_excluded` |
 | **3 Coleta** | áreas selecionadas | Estática sempre. Ativa-local se aprovada (mostrar comandos, **uma** confirmação; só `localhost`; encerrar servidor ao final). Ativa-remota só com `--url` (GET, ≤20 páginas, 1 req/s, UA `AI-WebAudit/<versão>`, nada invasivo). Cada saída em `raw/` com ferramenta, versão, comando e horário. **Falha de ferramenta = registrar erro, nunca estimar dado.** | `raw/*`, lista `tools` |
-| **4 Análise** | `context.json`, `raw/`, referências | Delegar **em paralelo** só aos subagentes necessários (§3). Cada um recebe: caminho do `context.json`, caminho de `raw/`, lista exata de referências a ler, caminho do schema e da `severity.md`, caminho de saída. Devolve JSON de achados conforme o schema. | `agents/<subagente>.json` |
+| **4 Análise** | `context.json`, `raw/`, referências | Delegar **em paralelo** só aos subagentes necessários (§3). Cada um recebe: caminho do `context.json`, caminho de `raw/`, lista exata de referências a ler, caminhos de `shared/severity.md`, `shared/agent-output.md` e `shared/findings.schema.json`, `skill` e objetivo. Devolve **somente** o JSON do contrato `shared/agent-output.md` (a sessão principal grava em `agents/<subagente>.json`). | `agents/<subagente>.json` |
 | **5 Consolidação** | JSONs dos subagentes | Validar com `scripts/validate-findings.mjs`; deduplicar, resolver conflitos (§4), atribuir IDs finais, ordenar. Subagente com JSON inválido: reenviar uma vez com os erros; persistindo, mover o que for aproveitável para `not_tested` e registrar a falha. | `findings.json` |
 | **6 Relatório** | `findings.json` | Gerar `report.md` pelo `report-template.md`. Atualizar `.webaudit/latest` (arquivo com o run ID). **Remover o lock.** | `report.md`, `latest` |
 | **7 Resposta** | relatório | Resumo executivo curto, críticos, caminho do relatório, próximo comando sugerido (ex.: `/ai-webaudit:fix WA-SEC-001 WA-PRIV-002`). | mensagem no chat |
@@ -82,7 +82,7 @@ Ordenação: severidade (CRÍTICO → OPCIONAL), depois `effort` (P → G), depo
 | Lê | Não lê |
 |---|---|
 | Sessão principal: `00-orchestrator.md`, `shared/findings.schema.json` (só ao validar), `shared/report-template.md`, `context.json`, **sumários** dos subagentes, `findings.json` | Referências de especialistas `01`–`15` |
-| Subagentes: suas referências selecionadas, `shared/severity.md`, `shared/findings.schema.json`, `context.json`, arquivos do alvo e `raw/` que precisarem | Referências de outras áreas; histórico da conversa |
+| Subagentes: suas referências selecionadas, `shared/severity.md`, `shared/agent-output.md`, `shared/findings.schema.json`, `context.json`, arquivos do alvo e `raw/` que precisarem | Referências de outras áreas; histórico da conversa |
 
 - Saídas longas de ferramentas ficam em `raw/` e são referenciadas por `raw_ref`; nunca coladas no chat ou em `description`.
 - Subagente devolve **apenas JSON** de achados (mais `not_tested`); nada de prosa longa.

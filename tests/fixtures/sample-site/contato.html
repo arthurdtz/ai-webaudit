@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Página</title>
+  <meta name="description" content="Fale com a clínica: telefone, WhatsApp e formulário de contato.">
+  <link rel="canonical" href="https://www.belavistaodonto.example/contato.html">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/analytics.js" defer></script>
+  <script src="js/main.js" defer></script>
+</head>
+<body>
+  <nav><a href="index.html">Início</a> <a href="servicos.html">Serviços</a> <a href="dicas.html">Dicas</a></nav>
+  <main>
+    <h1>Contato</h1>
+    <img src="img/contato.svg" alt="Fachada da clínica" width="640" height="240">
+    <p>Telefone: (11) 91234-5678</p>
+    <p><a href="https://wa.me/5511987654321?text=Ol%C3%A1%2C%20gostaria%20de%20agendar%20uma%20avalia%C3%A7%C3%A3o">Chamar no WhatsApp</a></p>
+
+    <form id="contato" method="post">
+      <label for="nome">Nome</label>
+      <input id="nome" name="nome" type="text" required autocomplete="name">
+
+      <label for="email">E-mail</label>
+      <input id="email" name="email" type="email" required autocomplete="email">
+
+      <label for="telefone">Telefone</label>
+      <input id="telefone" name="telefone" type="tel" autocomplete="tel">
+
+      <label for="mensagem">Mensagem</label>
+      <textarea id="mensagem" name="mensagem" required></textarea>
+
+      <p>Ao enviar, você concorda com os nossos termos.</p>
+      <button type="submit">Enviar mensagem</button>
+    </form>
+  </main>
+</body>
+</html>

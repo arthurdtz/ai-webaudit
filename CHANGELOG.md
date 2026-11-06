@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Etapa 6 — Subagentes e fixture
+- `agents/` com os 8 subagentes (`search-visibility`, `ai-visibility`, `conversion`, `performance`, `accessibility`, `privacy`, `security`, `release-qa`): `tools: Read, Grep, Glob`, `model: sonnet`.
+- `references/shared/agent-output.md`: contrato de saída JSON dos subagentes (sem `id`/`fix_status`; `related_check_ids`; `not_tested`; `areas_not_applicable`; `errors`).
+- Fixture `tests/fixtures/sample-site/` (negócio fictício), `expected-findings.json` (28 `must_find`, 10 `must_not_flag`, 15 áreas), `tests/fixtures/README.md` e `tests/check-expected-ids.mjs`.
+
 ### Etapa 5 — Referências: privacidade e segurança
 - `references/10-privacy-lgpd.md` (11 verificações), `14-security-api-edge.md` (14), `15-security-appsec.md` (12). Total das referências 01–15: 170 verificações.
 

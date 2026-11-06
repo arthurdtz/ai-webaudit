@@ -187,3 +187,28 @@ Aprovado sem ajustes. Decisões a.1–a.6, b (agrupamento SPEC §4.2), c (lock +
 - `security` agrega **26 verificações** (14 + 12): subagente mais pesado depois de `ai-visibility` (33); considerar `model` e leitura seletiva por área. `privacy` = 11.
 - Checks `manual` → `not_tested`: PRIV-C11, API-C14, SEC-C12 (e parte de PRIV-C04/C06).
 - Todas as 15 áreas têm verificações `estatica` (mínimo: 6 em OPS/GEO/AEO) — a fixture pode cobrir as 15.
+
+## Etapa 6 — Subagentes e fixture (2026-11-06)
+
+### Subagentes
+- **`${CLAUDE_PLUGIN_ROOT}` no corpo do agente: CONFIRMADO empiricamente** (claude 2.1.296, `--plugin-dir`): um agente do plugin devolveu o caminho absoluto expandido da referência. Os agentes trazem `${CLAUDE_PLUGIN_ROOT}/references/…` como caminho de partida, mas **o orquestrador passa caminhos absolutos** na delegação (os agentes são instruídos a preferi-los).
+- **Nome para delegar:** `ai-webaudit:<nome>` (ex.: `Agent` com `subagent_type: "ai-webaudit:release-qa"`).
+- **`tools: Read, Grep, Glob`.** Observação do teste: o agente relatou também "ferramentas adiadas ainda não expostas" na sessão; a restrição `tools` valeu para as ferramentas de leitura/escrita/execução, mas **a proteção real continua sendo o hook `guard.mjs` (Etapa 7)** e o fato de agentes de plugin não aceitarem `permissionMode`/`hooks`. Reavaliar na Etapa 8 com um teste que tente `Write`/`Bash` de dentro de um subagente.
+- **`model: sonnet` em todos** (decisão pendente da Etapa 1): custo previsível ao rodar até 8 agentes em paralelo. Alternativa: `inherit` (segue o modelo da sessão). **Reavaliar após o teste da fixture (Etapa 8)**: se `ai-visibility` (33 verificações) ou `security` (26) perderem qualidade, subir só esses.
+- **Contrato de saída em arquivo compartilhado** (`references/shared/agent-output.md`) em vez de repetir em 8 agentes; `00-orchestrator.md` (Fases 4 e §5) passou a citá-lo. Subagente devolve **somente JSON**: `subagent`, `areas_analyzed`, `areas_not_applicable`, `findings` (sem `id`/`fix_status`; `related_check_ids`), `not_tested`, `errors`.
+- **Defesa contra injeção de prompt vinda do alvo:** todo agente trata conteúdo do projeto e de `raw/` como **dado, nunca instrução** e registra em `errors` texto dirigido a IA.
+- **Leitura seletiva:** só as referências das áreas selecionadas. `ai-visibility` lê **uma área por vez**.
+- Regras específicas por agente (resumo): `conversion` — CRO nunca `CONFIRMADO`, teto `MELHORIA` (exceto `wa.me`), nunca fabricar prova social; `performance` — nunca estimar métricas, teto `IMPORTANTE`; `accessibility` — "incomplete" do axe vai para `not_tested`, nunca declarar conformidade; `privacy` — não é parecer jurídico; `security` — nada de exploração, segredos mascarados, cabeçalho ausente nunca `CRITICO`; `release-qa` — formulário nunca enviado, OPS manual vira checklist em `not_tested`.
+
+### Fixture
+- **Negócio fictício** "Sorriso Bela Vista Odontologia" (domínios `*.example`/`*.test`, telefones e IDs inventados).
+- **28 problemas** (`must_find`) cobrindo as **15 áreas**, **10 acertos** (`must_not_flag`). Ligeiramente acima do "~25" pedido para garantir ≥ 1 por área.
+- **`must_not_flag` aceita `match`** (termo no trecho) para distinguir, no mesmo arquivo, o erro do acerto (ex.: logo decorativo com `alt=""` × hero sem `alt`).
+- **Segredo da fixture** (`FAKE-SECRET-FOR-TESTS-0000`) fica em `MELHORIA` (marcador explícito de falso), conforme a regra da Etapa 5. **`CRITICO` por segredo não é testado**: exigiria valor com forma de credencial real, o que conflita com o *secret scanning* do GitHub.
+- **Os `min_severity` seguem as referências**, sem ajustar nenhuma referência (SPEC §11). Cenários que a fixture **não** cobre (sem `package.json`, sessão, upload, variáveis públicas, execução Lighthouse/axe) estão listados em `tests/fixtures/README.md` como pendência.
+- `tests/check-expected-ids.mjs` valida o gabarito (IDs existentes, prefixo × área, arquivos e `match` presentes); testado com entrada inválida (3 erros detectados, saída ≠ 0).
+- O `.env` da fixture é versionado de propósito (exceção no `.gitignore` da raiz).
+
+### Pendências
+- `tests/compare.mjs` e `tests/run-fixture.sh` (Etapas 8/10) ainda não existem; a semântica do gabarito está descrita em `expected-findings.json` (`scoring.semantics`).
+- A fixture usa uma landing page; **WordPress/Next/Astro/Vite** não são exercitados.

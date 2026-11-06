@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Etapa 4 — Referências: experiência e produto
+- `references/05-cro-landing-pages.md` (9 verificações), `06-qa-pre-launch.md` (14), `07-analytics-tracking.md` (10), `08-performance-cwv.md` (13), `09-accessibility.md` (14), `12-post-launch-maintenance.md` (13), no modelo de `shared/reference-template.md`, com fontes consultadas em 2026-11-05.
+
 ### Etapa 3 — Referências: busca e IA
 - `references/01-seo.md` (16 verificações), `02-geo.md` (7), `03-aeo.md` (7), `04-aio.md` (8), `11-local-seo-gbp.md` (11), `13-content-authority.md` (11), todas no modelo de `shared/reference-template.md`, com fontes oficiais consultadas em 2026-11-05.
 

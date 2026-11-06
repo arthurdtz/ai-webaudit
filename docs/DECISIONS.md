@@ -117,3 +117,34 @@ Aprovado sem ajustes. Decisões a.1–a.6, b (agrupamento SPEC §4.2), c (lock +
 ### Para as Etapas 6 e 10
 - `ai-visibility` cobre 4 referências (02, 03, 04, 13 = 33 verificações): é o subagente mais pesado; considerar `model` e instruções de leitura seletiva na Etapa 6.
 - Checks `manual` (LOC-C08…C11, GEO-C07, AEO-C06, CONT-C11, AIO-C02) devem sair como `not_tested`, não como achados.
+
+## Etapa 4 — Referências de experiência e produto (2026-11-05)
+
+### Decisões de método
+- **Nova tag `[FUNCIONAMENTO]` na referência de QA (06).** `[PRÁTICA]` (teto `MELHORIA`) não serve para defeitos observáveis (link quebrado, build que falha, placeholder). Em QA, a severidade vem do **dano comprovado por evidência**; sugestões sem defeito observável continuam com teto `MELHORIA`. Aplica-se só ao 06; o `reference-template.md` não mudou.
+- **CRO (05):** tudo `RISCO_POTENCIAL`/`PREVENTIVO`, teto `MELHORIA` (prática sem garantia). **Única exceção:** formato do link `wa.me` (documentação oficial do WhatsApp), que pode ser `IMPORTANTE` com evidência de código. Sem `CONFIRMADO` e portanto sem `CRITICO` em CRO.
+- **PERF (08):** nenhum achado chega a `CRITICO`; teto `IMPORTANTE`. Sem relatório de medição, métricas vão para `not_tested`; INP só existe em campo.
+- **A11Y (09):** axe-core cobre ~57% (média declarada); lista de testes manuais obrigatórios em `A11Y-C14`; nunca declarar conformidade. `CRITICO` só para fluxo principal inoperável por tecnologia assistiva, com evidência de código **e** execução.
+- **ANL (07):** `CRITICO` só quando o código comprovadamente envia PII clara a analytics/pixel (`ANL-C08`). Consentimento fica em `PRIV` (referenciado).
+- **OPS (12):** maioria `manual` → `not_tested`; teto `MELHORIA`.
+- Viewports **360/768/1440** são definição do projeto (SPEC), não de norma.
+
+### Fronteiras resolvidas
+- **ANL × PRIV:** "a tag está instalada, única, mede o certo?" = `ANL`; "pode disparar e com base em quê?" = `PRIV`.
+- **OPS × SEC:** rotina de atualização/renovação = `OPS`; vulnerabilidade concreta = `SEC`.
+- **CRO × QA:** "funciona?" = `QA`; "converte bem?" = `CRO`. Link com número placeholder = `QA-C02`; formato `wa.me` = `CRO-C08`.
+- **A11Y × SEO:** título da página como SEO = `SEO-C07`; critério 2.4.2 só citado. Headings: busca = `SEO`, leitor de tela = `A11Y-C04`.
+- **PERF × ANL/CRO/PRIV:** custo de performance de scripts = `PERF-C12`, com `tradeoffs` obrigatórios.
+
+### Lacunas e limites de fonte
+- **Performance:** página do Lighthouse documenta os pesos do **Lighthouse 10**; a versão instalada pelo plugin (Etapa 7) deve ser conferida. AVIF/WebP, bfcache e limiar de TBT **não** foram confirmados em fonte.
+- **A11Y:** leitura de ~200 mil dos ~270 mil caracteres do WCAG 2.2; técnicas/falhas e páginas "Understanding" não lidas; normas ABNT NBR 17225/17060 só citadas por página do gov.br.
+- **ANL:** nomes de eventos recomendados do GA4, lista de eventos padrão do Meta (inclui `Lead`), Consent Mode e outras plataformas **não** lidos. "gtag.js + GTM duplicam" veio de resumo de busca → tratado como `RISCO_POTENCIAL`. Regra sobre UTM em links internos **sem fonte**.
+- **QA:** página MDN de viewport 404; Twitter/X Cards, Chrome DevTools e Lighthouse best-practices não consultados.
+- **CRO:** várias fontes NN/g são de 2015–2019; NN/g "CTA buttons" 404 → rótulos de CTA sem fonte; Baymard cobre **checkout**.
+- **OPS:** CISA, NCSC e ICANN indisponíveis/não lidos → backups, domínio e monitoramento **sem fonte** (prática). Páginas de ajuda do Bing Webmaster seguem ilegíveis.
+
+### Para as Etapas 6 e 10
+- Subagente `conversion` = CRO + ANL (19 verificações); `release-qa` = QA + OPS (27); `performance` = 13; `accessibility` = 14.
+- Verificações que exigem `ativa-local`: A11Y (axe + capturas), PERF (Lighthouse), QA-C05/C06/C12, CRO capturas. A fixture deve cobrir esses modos.
+- Checks `manual` sempre saem como `not_tested`: OPS-C01…C04, C06…C09, C12, C13; A11Y-C14; QA-C14; ANL-C10; PERF-C02.

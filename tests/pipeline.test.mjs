@@ -83,8 +83,24 @@ test("compare: 'match' distingue o erro do acerto no mesmo arquivo (OK02: logo d
   const agents = perfectAgents(); // F14 já aponta img/hero.svg (não contém logo.svg) → não é violação
   const { run } = mkRun({ agents }); consolidate(run);
   assert.match(compare(join(run, "findings.json")).stdout, /MUST_NOT_FLAG apontados: 0/);
-  const bad = perfectAgents(); bad["all-agents"].findings.push(agentFinding({ check_id: "A11Y-C02", area: "A11Y", file: "index.html", min_severity: "IMPORTANTE" }, { title: "logo sem alt", evidence: [{ type: "codigo", file: "index.html", line: 99, snippet: '<img src="img/logo.svg" alt="">' }] }));
+  const bad = perfectAgents(); // sem F14 (senão o consolidador funde os dois achados de A11Y-C02 em index.html e a evidência do logo ficaria em 2º lugar)
+  bad["all-agents"].findings = bad["all-agents"].findings.filter((x) => !(x.check_id === "A11Y-C02"));
+  bad["all-agents"].findings.push(agentFinding({ check_id: "A11Y-C02", area: "A11Y", file: "index.html", min_severity: "IMPORTANTE" }, { title: "logo sem alt", evidence: [{ type: "codigo", file: "index.html", line: 99, snippet: '<img src="img/logo.svg" alt="">' }] }));
   const t2 = mkRun({ agents: bad }); consolidate(t2.run);
+  assert.match(compare(join(t2.run, "findings.json")).stdout, /MUST_NOT_FLAG apontados: 1/);
+});
+
+test("compare: evidência de contraste (2ª evidência no arquivo do acerto) NÃO conta como apontar o acerto (OK05)", () => {
+  const agents = perfectAgents(); const ok = EXPECTED.must_not_flag.find((n) => n.id === "OK05");
+  const cro = agents["all-agents"].findings.find((x) => x.check_id === "CRO-C08");
+  cro.evidence.push({ type: "codigo", file: ok.file, line: 19, snippet: "https://wa.me/5511987654321" }); // contraste: link correto citado em segundo lugar
+  const { run } = mkRun({ agents }); consolidate(run);
+  const r = compare(join(run, "findings.json")); assert.equal(r.status, 0, r.stdout);
+  assert.match(r.stdout, /MUST_NOT_FLAG apontados: 0/);
+  // mas como evidência PRIMÁRIA conta
+  const agents2 = perfectAgents(); const c2 = agents2["all-agents"].findings.find((x) => x.check_id === "CRO-C08");
+  agents2["all-agents"].findings.push({ ...c2, evidence: [{ type: "codigo", file: ok.file, line: 19, snippet: "x" }] });
+  const t2 = mkRun({ agents: agents2 }); consolidate(t2.run);
   assert.match(compare(join(t2.run, "findings.json")).stdout, /MUST_NOT_FLAG apontados: 1/);
 });
 

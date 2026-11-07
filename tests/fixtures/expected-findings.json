@@ -13,7 +13,7 @@
     ],
     "semantics": {
       "must_find": "Existe achado com este check_id cujas evidências citam este arquivo (ou parte dele) e severidade >= min_severity.",
-      "must_not_flag": "Não existe achado com este check_id e severidade >= MELHORIA cujas evidências citem este arquivo; quando 'match' existe, só conta a evidência cujo snippet/arquivo contenha um dos termos (separados por |)."
+      "must_not_flag": "Não existe achado com este check_id e severidade >= MELHORIA cuja evidência PRIMÁRIA (a primeira) cite este arquivo; evidências seguintes (ex.: contraste com o trecho correto) não contam. Quando 'match' existe, a evidência primária também precisa conter um dos termos (separados por |)."
     }
   },
   "must_find": [

@@ -14,7 +14,7 @@ Site estático **fictício** (Sorriso Bela Vista Odontologia, "Vila Exemplo/SP")
 ## Semântica do gabarito
 
 - **`must_find`:** existe achado com o `check_id`, severidade ≥ `min_severity` e evidência que cite o arquivo (ou parte dele).
-- **`must_not_flag`:** **não** existe achado com o `check_id` e severidade ≥ `MELHORIA` cuja evidência cite o arquivo; com `match`, vale só para a evidência que contenha o termo.
+- **`must_not_flag`:** **não** existe achado com o `check_id` e severidade ≥ `MELHORIA` cuja evidência **primária** (a primeira) cite o arquivo; evidências seguintes (por exemplo, o trecho correto citado como contraste) não contam; com `match`, a evidência primária também precisa conter o termo.
 - Os `min_severity` seguem as **referências**. Em especial: o segredo do `.env` é um valor com marcador explícito de falso (`FAKE-…`), portanto **`MELHORIA`**, não `CRITICO` (SPEC §11: formato que não dispara o *secret scanning* do GitHub; decisão registrada em `docs/DECISIONS.md`).
 
 ## Problemas plantados (28) — as 15 áreas têm ao menos um

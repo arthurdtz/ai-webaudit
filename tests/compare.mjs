@@ -23,7 +23,9 @@ const list = findings.findings ?? [];
 const norm = (p) => String(p ?? "").replace(/^\.\//, "");
 const evFiles = (f) => f.evidence.map((e) => norm(e.file)).filter(Boolean);
 const touches = (f, file) => evFiles(f).some((x) => x === file || x.endsWith("/" + file) || file.endsWith("/" + x));
-const termMatch = (f, match) => { const terms = match.split("|"); return f.evidence.some((e) => terms.some((t) => `${e.file ?? ""} ${e.snippet ?? ""} ${e.output_excerpt ?? ""}`.includes(t))); };
+const termMatch = (ev, match) => { const terms = match.split("|"); return ev.some((e) => terms.some((t) => `${e.file ?? ""} ${e.snippet ?? ""} ${e.output_excerpt ?? ""}`.includes(t))); };
+// must_not_flag olha só a evidência PRIMÁRIA (a primeira): evidência de contraste (ex.: "o link da página de contato está correto") não conta como apontar o acerto.
+const primaryTouches = (f, file) => { const e = f.evidence[0]; if (!e?.file) return false; const x = norm(e.file); return x === file || x.endsWith("/" + file) || file.endsWith("/" + x); };
 
 const mustFind = expected.must_find.map((m) => {
   const sameCheck = list.filter((f) => f.check_id === m.check_id);
@@ -44,8 +46,8 @@ const recall = mustFind.length ? found / mustFind.length : 0;
 const violations = [];
 for (const n of expected.must_not_flag) {
   for (const f of list.filter((x) => x.check_id === n.check_id && rank(x.severity) >= rank("MELHORIA"))) {
-    if (!touches(f, n.file)) continue;
-    if (n.match && !termMatch(f, n.match)) continue;
+    if (!primaryTouches(f, n.file)) continue;
+    if (n.match && !termMatch([f.evidence[0]], n.match)) continue;
     violations.push({ id: n.id, check_id: n.check_id, file: n.file, finding: f.id, severity: f.severity, title: f.title, reason: n.reason });
   }
 }

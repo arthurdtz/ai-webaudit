@@ -54,19 +54,19 @@ Tags: **[OFICIAL]** = documentado pelo Google/web.dev/Chrome; **[PRÁTICA]** = r
 - Fonte: F5, F6.
 
 ### PERF-C03 — Elemento de LCP descobrível e priorizado  [OFICIAL]
-- **O que verificar:** a imagem candidata a LCP (herói, banner) está no **HTML inicial** com `src`/`srcset` (não injetada por JS, `data-src` ou só como `background-image` CSS); **não** usa `loading="lazy"`; tem `fetchpriority="high"` (em no máximo uma ou duas imagens); quando vem de CSS/JS, há `<link rel="preload" as="image">`. LCP inclui `<img>`, `<svg><image>`, `<video>` (poster), `background-image` com `url()` e blocos de texto. Partes ideais do LCP (diretriz, não regra): TTFB ~40%, atraso de carregamento do recurso < 10%, duração do download ~40%, atraso de renderização < 10%.
+- **O que verificar:** a imagem candidata a LCP (herói, banner) está no **HTML inicial** com `src`/`srcset` (não injetada por JS, `data-src` ou só como `background-image` CSS); tem `fetchpriority="high"` (em no máximo uma ou duas imagens); quando vem de CSS/JS, há `<link rel="preload" as="image">`. (**`loading="lazy"` na imagem LCP é tratado em `PERF-C04`**, não aqui: um defeito, um check). LCP inclui `<img>`, `<svg><image>`, `<video>` (poster), `background-image` com `url()` e blocos de texto. Partes ideais do LCP (diretriz, não regra): TTFB ~40%, atraso de carregamento do recurso < 10%, duração do download ~40%, atraso de renderização < 10%.
 - **Como verificar:** `estatica` (templates/componentes); `ativa-local` para confirmar o elemento LCP real no relatório.
 - **Evidência esperada:** `file:line` da imagem; elemento LCP do relatório (`raw_ref`).
-- **Severidade padrão:** `IMPORTANTE` quando a imagem LCP tem `loading="lazy"` ou só existe via JS/CSS sem preload (`CONFIRMADO` por código); `MELHORIA` quando só falta `fetchpriority`.
-- **Correção:** remover `lazy`, adicionar `fetchpriority="high"`, expor no HTML; Next.js `priority` no `<Image>`; Astro `loading="eager"`/`fetchpriority`. **Validação:** relatório mostra LCP element sem atraso de descoberta.
+- **Severidade padrão:** `IMPORTANTE` quando a imagem LCP só existe via JS/CSS/`data-src` e **não** há preload (`CONFIRMADO` por código); `MELHORIA` quando só falta `fetchpriority`. Se a imagem LCP também tem `lazy`, registre **só** o `PERF-C04` e cite o `PERF-C03` em `related_check_ids`.
+- **Correção:** adicionar `fetchpriority="high"`, expor no HTML (ou `preload`); Next.js `priority` no `<Image>`; Astro `loading="eager"`/`fetchpriority`. **Validação:** relatório mostra LCP element sem atraso de descoberta.
 - Fonte: F7, F8.
 
 ### PERF-C04 — Lazy loading correto  [OFICIAL]
-- **O que verificar:** `loading="lazy"` só em imagens/iframes **fora da viewport inicial**; sem `lazy` em imagens acima da dobra; `lazy` + `fetchpriority="high"` não faz sentido; imagens com `lazy` têm `width`/`height` (senão aumentam CLS); `loading` não funciona em `background-image` CSS; `display:none` não carrega, `opacity:0` carrega.
+- **O que verificar:** `loading="lazy"` só em imagens/iframes **fora da viewport inicial**; sem `lazy` em imagens acima da dobra, **inclusive a imagem candidata a LCP** (web.dev: lazy na imagem LCP "sempre leva a atraso desnecessário de carregamento do recurso"); `lazy` + `fetchpriority="high"` não faz sentido; imagens com `lazy` têm `width`/`height` (senão aumentam CLS); `loading` não funciona em `background-image` CSS; `display:none` não carrega, `opacity:0` carrega.
 - **Como verificar:** `estatica`.
 - **Evidência esperada:** `file:line`.
-- **Severidade padrão:** `IMPORTANTE` para `lazy` em imagem acima da dobra/LCP (`CONFIRMADO`); `MELHORIA` para imagens abaixo da dobra sem `lazy`.
-- **Correção:** `lazy` apenas abaixo da dobra; iframes pesados (mapa, vídeo) com `loading="lazy"`. **Validação:** nenhuma imagem inicial com `lazy`.
+- **Severidade padrão:** `IMPORTANTE` para `lazy` em imagem acima da dobra/LCP (`CONFIRMADO`; **dono único desse defeito**, inclusive quando a imagem é a do LCP); `MELHORIA` para imagens abaixo da dobra sem `lazy`.
+- **Correção:** remover `lazy` da imagem LCP (e usar `fetchpriority="high"`); `lazy` apenas abaixo da dobra; iframes pesados (mapa, vídeo) com `loading="lazy"`. **Validação:** nenhuma imagem inicial com `lazy`.
 - Fonte: F9.
 
 ### PERF-C05 — Dimensões de imagens, vídeo e iframes (CLS)  [OFICIAL]

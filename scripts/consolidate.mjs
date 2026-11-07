@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { parseArgs } from "./lib/common.mjs";
-import { renderReport } from "./lib/report.mjs";
+import { objectiveText, renderReport } from "./lib/report.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = resolve(HERE, "..", "references", "shared", "findings.schema.json");
@@ -136,7 +136,7 @@ export function consolidate(runArg, { report = true, skillOverride } = {}) {
   const consolidation = { generated_at: data.generated_at, validation, counts: { findings: findings.length, by_severity: Object.fromEntries(["CRITICO", "IMPORTANTE", "MELHORIA", "OPCIONAL"].map((s) => [s, findings.filter((f) => f.severity === s).length])), not_tested: finalNT.length, rejected: stats.rejected.length, merged: stats.merged }, ...stats };
   writeFileSync(join(run, "consolidation.json"), JSON.stringify(consolidation, null, 2) + "\n");
   if (report && validation.ok) {
-    writeFileSync(join(run, "report.md"), renderReport(data, { context }));
+    writeFileSync(join(run, "report.md"), renderReport(data, { context, objective: runMeta.objective ?? (data.skill === "optimize" ? objectiveText(data.arguments) : null), objectiveAreas: runMeta.objective_areas ?? [] }));
     const wa = resolve(run, "..", ".."); // <alvo>/.webaudit
     if (basenameIs(wa, ".webaudit")) writeFileSync(join(wa, "latest"), `${data.run_id}\n`);
   }

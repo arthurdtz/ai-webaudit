@@ -36,8 +36,8 @@ Falha em qualquer fase após criar o lock: remover o lock antes de encerrar (o g
 | Rotas de API/serverless (`api/`, `pages/api`, `app/**/route.*`, functions), `vercel.json`, `netlify.toml`, `_headers`, `wrangler.*` | `API` | `API` sem backend nem config de hosting (sobra só headers declarados em arquivo → ainda `API` para headers) |
 | Código de aplicação (JS/TS/PHP/Python…), `package.json` com dependências, `.env*`, autenticação, uploads | `SEC` | `SEC` em HTML estático puro sem JS próprio, dependências ou segredos → só varredura de segredos |
 | Qualquer projeto em preparação para publicação | `OPS` | — |
-| Skill `pre-launch` | `QA SEO PRIV A11Y PERF OPS` + `API SEC` quando houver backend + `ANL` quando houver tracking | demais só com `--areas` |
-| Skill `optimize` | derivadas do objetivo (ex.: "mais leads" → `CRO ANL PERF`; "aparecer em IA" → `GEO AEO AIO CONT SEO`) | demais |
+| Skill `pre-launch` | `QA SEO PRIV A11Y PERF OPS` + `API SEC` quando houver backend/hosting + `ANL` quando houver tracking + `CRO` quando houver formulário ou CTA (`signals.has_cta_or_form`) | demais (`GEO AEO AIO LOC CONT`) só com `--areas` |
+| Skill `optimize` | derivadas do **objetivo** pela tabela da própria skill (`skills/optimize/SKILL.md`), cruzadas com os sinais do projeto | demais |
 | `--areas` informado | exatamente as listadas | todas as outras: motivo "excluída por `--areas`" |
 | Alvo sem HTML público e sem código web (ex.: repositório de documentação) | **parar** e perguntar ao usuário | — |
 
@@ -113,6 +113,8 @@ Deploy, push, commit sem autorização explícita, alterar banco de dados, expor
 ## 9. Procedimento operacional (comandos de cada fase)
 
 Comum a `audit`, `pre-launch` e `optimize`. A skill informa `<PLUGIN_ROOT>` (caminho absoluto do plugin, já expandido no texto da skill). **Este arquivo não expande variáveis**: substitua `<PLUGIN_ROOT>`, `<ALVO>`, `<RUN>` (= `<ALVO>/.webaudit/runs/<RUN_ID>`) e `<RUN_ID>` pelos valores reais. Nunca leia as referências `01`–`15` na sessão principal.
+
+**Comandos Bash: sempre com caminhos LITERAIS.** Substitua `<PLUGIN_ROOT>`, `<ALVO>`, `<RUN>` e `<RUN_ID>` pelos valores reais **antes** de escrever o comando. **Não** use variáveis de shell (`$RUN`, `$R`…), `$(…)` nem `node -e`/pipes para processar JSON: o guard bloqueia destino dinâmico e código inline (isso já ocorreu em sessão real). Para ler uma saída JSON (ex.: do `consolidate.mjs`), leia o arquivo gerado com `Read`.
 
 **Regra de ouro:** qualquer que seja o resultado, **termine sempre com `node <PLUGIN_ROOT>/scripts/lock.mjs release <ALVO>`** (Fase 6, inclusive em falha ou cancelamento). Sem o `release`, o modo leitura fica ativo até expirar (2 h).
 

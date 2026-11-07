@@ -14,7 +14,27 @@ function evidenceLine(e) {
   return `${where}${detail}`.trim() || "(sem detalhe)";
 }
 
-export function renderReport(d, { context = {} } = {}) {
+export const PRELAUNCH_CHECKLIST = [
+  ["SEO-C01 / SEO-C02", "Em **produção**, confirme que não restou `noindex` nem `Disallow: /` de staging (HTML e cabeçalhos reais)."],
+  ["OPS-C06 / SEO-C12", "HTTPS válido, redirecionamento `http`→`https` e `www`/apex consolidado; data de vencimento do certificado."],
+  ["SEO-C05 / OPS-C02", "Sitemap acessível no domínio de produção e enviado no Google Search Console (e Bing Webmaster Tools)."],
+  ["OPS-C01", "Propriedade do site verificada no Google Search Console (preferir propriedade de domínio por DNS) e mantida."],
+  ["QA-C14", "**Teste real do formulário em produção** (ou ambiente equivalente): envio e recebimento da mensagem; testar também o link do WhatsApp em celular."],
+  ["ANL-C10", "Eventos de conversão chegando (Realtime/DebugView do GA4, Events Manager do Meta) e marcados como eventos-chave."],
+  ["SEO-C06 / QA-C09", "Canonical e Open Graph apontando para o domínio de produção; teste de compartilhamento nas redes."],
+  ["QA-C03 / SEO-C12", "Página 404 personalizada e redirecionamentos das URLs antigas funcionando."],
+  ["QA-C06", "Navegação completa em produção sem erros de console ou de rede (inclua um celular real)."],
+  ["LOC-C08 / LOC-C09", "Se há negócio local: Perfil da Empresa no Google verificado, com nome, endereço, telefone, horários e site iguais aos do site."],
+  ["OPS-C09", "Monitoramento de disponibilidade e de erros ativo, com alerta para uma pessoa real."],
+  ["OPS-C08", "Backup e teste de restauração (banco, uploads, configurações) definidos."],
+  ["OPS-C07", "Domínio: renovação automática, e-mail de contato acessível e autenticação em dois fatores em registrador, DNS, hospedagem e repositório."],
+  ["PRIV-C02 / PRIV-C03", "Banner/consentimento e política de privacidade revisados pelo responsável (com o jurídico, se aplicável)."],
+];
+
+const OBJ_STRIP = /--(?:url|areas|run)\s+\S+|--(?:static-only|no-build)/g;
+export const objectiveText = (args) => String(args ?? "").replace(OBJ_STRIP, "").replace(/\s+/g, " ").trim();
+
+export function renderReport(d, { context = {}, objective = null, objectiveAreas = [] } = {}) {
   const f = d.findings; const by = (s) => f.filter((x) => x.severity === s);
   const counts = Object.fromEntries(SEV_ORDER.map((s) => [s, by(s).length]));
   const isPre = d.skill === "pre-launch";
@@ -39,6 +59,8 @@ export function renderReport(d, { context = {} } = {}) {
 
   const L = [];
   L.push(`# Relatório AI WebAudit — ${project}`, "");
+  if (isPre) L.push(counts.CRITICO ? `> **Bloqueadores conhecidos: SIM (${counts.CRITICO})** — itens críticos com evidência que devem ser resolvidos antes de publicar. Isto **não** garante que não existam outros problemas: veja o que **não** foi testado (seção 6).` : `> **Bloqueadores conhecidos: NÃO IDENTIFICADOS** — nenhum item crítico com evidência foi encontrado **no que foi testado**. Isto **não** garante ausência de problemas nem que o site esteja pronto: veja o que **não** foi testado (seção 6) e o checklist manual (seção 9).`, "");
+  if (d.skill === "optimize" && objective) L.push(`> **Objetivo:** ${objective}`, "");
   L.push("| Campo | Valor |", "|---|---|");
   L.push(`| Data | ${date} |`, `| Run | ${code(d.run_id)} |`, `| Skill | ${code("/ai-webaudit:" + d.skill)}${d.arguments ? " " + code(d.arguments) : ""} |`);
   L.push(`| Commit / branch | ${d.git.is_repo ? `${code((d.git.commit ?? "").slice(0, 10))} / ${code(d.git.branch ?? "")}${d.git.dirty ? " (há alterações não commitadas)" : ""}` : "(sem git)"} |`);
@@ -84,5 +106,30 @@ export function renderReport(d, { context = {} } = {}) {
   L.push("", "## 7. Áreas não acionadas", "");
   if (d.areas_excluded.length) { L.push("| Área | Motivo |", "|---|---|"); for (const a of d.areas_excluded) L.push(`| ${a.area} | ${esc(a.reason)} |`); } else L.push("Todas as áreas aplicáveis foram acionadas.");
   L.push("", "## 8. Aviso", "", "Este relatório não é certificação de segurança, acessibilidade ou conformidade legal. Ferramentas automáticas cobrem só parte dos critérios; os itens da seção 6 exigem verificação humana. Os resultados refletem o estado do projeto no commit indicado.", "");
+
+  if (isPre) {
+    L.push("## 9. Checklist manual pós-publicação", "", "Itens que o plugin **não** consegue verificar (dependem de contas, painéis, produção ou pessoas). Marque cada um com data e responsável.", "");
+    for (const [ref, text] of PRELAUNCH_CHECKLIST) L.push(`- [ ] ${text} _(ref.: ${ref})_`);
+    L.push("");
+  }
+  if (d.skill === "optimize") {
+    const rank = (x) => (objectiveAreas.includes(x.area) ? 0 : 1);
+    const sortIn = (arr) => arr.slice().sort((a, b) => rank(a) - rank(b) || SEV_ORDER.indexOf(a.severity) - SEV_ORDER.indexOf(b.severity));
+    const rest = f.filter((x) => x.severity !== "OPCIONAL");
+    const phases = [
+      ["Fase 0 — Corrigir primeiro (críticos)", sortIn(rest.filter((x) => x.severity === "CRITICO"))],
+      ["Fase 1 — Ganhos rápidos (esforço pequeno)", sortIn(rest.filter((x) => x.severity !== "CRITICO" && x.effort === "P"))],
+      ["Fase 2 — Melhorias de médio esforço", sortIn(rest.filter((x) => x.severity !== "CRITICO" && x.effort === "M"))],
+      ["Fase 3 — Mudanças estruturais (esforço grande)", sortIn(rest.filter((x) => x.severity !== "CRITICO" && x.effort === "G"))],
+    ];
+    L.push("## 9. Plano de implementação em fases", "", objective ? `Objetivo: **${objective}**. Itens de áreas ligadas ao objetivo (${objectiveAreas.join(", ") || "n/d"}) aparecem primeiro dentro de cada fase e levam ★.` : "", "", "A ordem usa severidade, esforço e relação com o objetivo. **Não há estimativa de ganho**: o plugin não prevê resultados (tráfego, conversão, posição). Mudanças com trade-off (seção 4) pedem decisão antes.", "");
+    for (const [name, items] of phases) {
+      L.push(`### ${name}`, "");
+      if (!items.length) { L.push("Nenhum item.", ""); continue; }
+      L.push("| | ID | Área | Título | Impacto | Esforço |", "|---|---|---|---|---|---|");
+      for (const x of items) L.push(`| ${objectiveAreas.includes(x.area) ? "★" : ""} | ${code(x.id)} | ${x.area} | ${esc(x.title)} | ${esc(String(x.impact).slice(0, 160))} | ${EFFORT_LABEL[x.effort]} |`);
+      L.push("");
+    }
+  }
   return L.join("\n");
 }

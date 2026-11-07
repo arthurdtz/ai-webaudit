@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Etapa 9 — Skills `pre-launch`, `optimize` e `fix`
+- `skills/pre-launch/SKILL.md`: foco de publicação; veredito "Bloqueadores conhecidos: SIM (n) / NÃO IDENTIFICADOS" logo abaixo do título do `report.md` e checklist manual pós-publicação (seção 9).
+- `skills/optimize/SKILL.md`: tabela objetivo → áreas; pergunta uma vez se ambíguo; plano em fases (seção 9 do relatório) com impacto e esforço, sem estimativa de ganho.
+- `skills/fix/SKILL.md` + `scripts/fix-status.mjs` (`resolve`, `select`, `set`, `summary`; escreve `fix_status` e `fix-log.md`): plano por achado, uma confirmação para o lote (individual para risco alto), branch `webaudit/fix-<run_id>`, mudança mínima, validação, sem commit nem deploy. Argumento extra `--yes` (autorização prévia do lote).
+- **Guard em modo `fix`** (`lock.mjs acquire --mode fix`): bloqueia sempre commit/push/tag/reset, deploy, bancos de dados, publicação de pacotes e escritas fora do projeto ou em `.git/`; o modo leitura nunca bloqueia o `/fix` (sem lock, tudo livre). 20 testes do guard.
+- `references/00-orchestrator.md`: §2 (matriz de `pre-launch` com `CRO`; `optimize` pela tabela da skill) e §9 (comandos com caminhos literais; sem variáveis de shell nem `node -e`).
+- `tests/run-skills.sh` + `tests/check-skills.mjs` (harness do teste real das três skills) e 14 testes do pipeline sem modelo.
+- **Pendente:** execução real (`tests/run-skills.sh`; o `claude` desta sessão está sem autenticação).
+
 ### Etapa 8 — Skill `audit` e teste da fixture
 - `skills/audit/SKILL.md` (só o específico do `audit`); fluxo comum e comandos de cada fase em `references/00-orchestrator.md` §9.
 - `scripts/consolidate.mjs` + `scripts/lib/report.mjs`: Fases 5 e 6 mecânicas (valida cada achado, deduplica, numera IDs, liga `related_ids`, valida `findings.json`, gera `report.md` e `.webaudit/latest`).

@@ -6,6 +6,8 @@
 // - Com lock: bloqueia Write/Edit/MultiEdit/NotebookEdit fora de .webaudit/ e Bash com padrões de risco.
 // - Bloqueio = exit 2 + motivo em stderr (a doc: "exit 2 bloqueia"; qualquer outro código NÃO bloqueia).
 // - FALHA FECHADA com lock válido: erro interno, entrada ilegível ou lock ilegível => exit 2.
+// - Lock com `"mode": "fix"` (criado pelo /ai-webaudit:fix): NÃO é modo leitura. Só aplica o que é SEMPRE proibido (SPEC §9.4): commit/push/tag/reset, deploy,
+//   infraestrutura, clientes de banco de dados, publicação de pacotes, envio de dados a terceiros; e confina escritas ao projeto (nunca .git/, nunca o próprio lock).
 // - Não é um sandbox: é uma camada de proteção (SPEC §9). Ver docs/DECISIONS.md.
 import { readFileSync, existsSync, realpathSync, appendFileSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
@@ -37,13 +39,13 @@ function realish(abs) {
   }
   return abs;
 }
-function makeCtx(targetRoot) {
+function makeCtx(targetRoot, mode = "read") {
   const wa = join(targetRoot, WEBAUDIT_DIR);
   const waReal = realish(wa);
   const rootReal = realish(targetRoot);
   // .webaudit não pode ser um link simbólico que escapa do alvo
   const waSafe = waReal === join(rootReal, WEBAUDIT_DIR);
-  return { targetRoot, waReal, waSafe };
+  return { targetRoot, rootReal, waReal, waSafe, mode };
 }
 function insideWebaudit(ctx, p, cwd) {
   if (!ctx.waSafe) return false;
@@ -57,8 +59,23 @@ function isLockPath(ctx, p, cwd) {
   const real = realish(resolve(cwd, expandHome(p)));
   return real === join(ctx.waReal, LOCK_NAME);
 }
+function checkWritePathFix(ctx, p, cwd, what) {
+  if (typeof p !== "string" || p === "" || p.includes("$") || p.includes("`")) deny(`${what} com destino dinâmico bloqueado: ${p}`);
+  const real = realish(resolve(cwd, expandHome(p)));
+  if (real === ctx.rootReal) deny(`${what} na raiz do projeto bloqueado: ${p}`);
+  if (!real.startsWith(ctx.rootReal + sep)) deny(`${what} fora do projeto bloqueado no modo correção: ${p}`);
+  const rel = real.slice(ctx.rootReal.length + 1).split(sep);
+  if (rel[0] === ".git") deny(`${what} dentro de .git/ bloqueado: ${p}`);
+  if (rel[0] === WEBAUDIT_DIR && rel[1] === LOCK_NAME && rel.length === 2) deny(`${what} no lock bloqueado (use scripts/lock.mjs): ${p}`);
+}
+function inTarget(ctx, script, st) {
+  if (/\$/.test(script)) return false;
+  const real = realish(resolve(st.dir, expandHome(script)));
+  return real.startsWith(ctx.rootReal + sep);
+}
 function checkWritePath(ctx, p, cwd, what) {
   if (p === "-" ) return;
+  if (ctx.mode === "fix") return checkWritePathFix(ctx, p, cwd, what);
   if (!insideWebaudit(ctx, p, cwd)) deny(`${what} fora de ${WEBAUDIT_DIR}/ bloqueado no modo leitura: ${p}`);
   if (isLockPath(ctx, p, cwd)) deny(`${what} no lock do modo leitura bloqueado (use scripts/lock.mjs): ${p}`);
 }
@@ -216,6 +233,8 @@ const GIT_GLOBAL_WITH_ARG = new Set(["-C", "-c", "--git-dir", "--work-tree", "--
 const FS_MUTATORS = new Set(["rm", "rmdir", "unlink", "mv", "cp", "ln", "touch", "mkdir", "tee", "truncate", "chmod", "chown", "chgrp", "install", "shred", "mkfifo", "mknod"]);
 const NETWORK_TOOLS = new Set(["rsync", "scp", "sftp", "ssh", "ftp", "nc", "ncat", "netcat", "socat", "telnet"]);
 const DEPLOY_TOOLS = new Set(["vercel", "netlify", "ntl", "firebase", "wrangler", "flyctl", "fly", "surge", "gh-pages", "serverless", "sls", "amplify", "railway", "heroku", "doctl", "aws", "gcloud", "az", "kubectl", "terraform", "pulumi", "helm", "docker", "podman", "docker-compose", "supabase", "turso", "pscale"]);
+const DB_CLIENTS = new Set(["psql", "mysql", "mariadb", "mongosh", "mongo", "redis-cli", "sqlite3", "prisma", "drizzle-kit", "knex", "sequelize", "sequelize-cli", "typeorm", "mysqldump", "pg_restore"]);
+const FIX_NPM_BLOCK = new Set(["publish", "unpublish", "deprecate", "login", "logout", "adduser", "owner", "access", "team", "token", "exec", "x", "dlx", "create", "init", "version", "config", "set", "star", "unstar", "hook"]);
 const EDITORS = new Set(["ed", "ex", "vi", "vim", "nvim", "nano", "emacs", "pico"]);
 const ARCHIVERS = new Set(["unzip", "zip", "7z", "7za", "gunzip", "gzip", "bzip2", "xz", "unxz", "cpio"]);
 const SHELLS = new Set(["bash", "sh", "zsh", "dash", "ksh", "fish"]);
@@ -311,10 +330,11 @@ function analyzeSimple(ctx, cmd, st, viaXargs = false, depth = 0) {
     if (t === undefined || t === "-" || ws[1]?.dyn) { st.unknown = true; return; }
     st.dir = resolve(st.dir, expandHome(t)); st.unknown = false; return;
   }
-  if (name === "git") return analyzeGit(args);
+  if (name === "git") return ctx.mode === "fix" ? analyzeGitFix(args) : analyzeGit(args);
   if (FS_MUTATORS.has(name)) return checkFsMutator(ctx, name, args, st, viaXargs);
   if (NETWORK_TOOLS.has(name)) deny(`${name} bloqueado no modo leitura (envio de dados a terceiros)`);
   if (DEPLOY_TOOLS.has(name)) deny(`${name} bloqueado no modo leitura (deploy/infraestrutura/containers)`);
+  if (DB_CLIENTS.has(name)) deny(`${name} bloqueado no modo leitura (cliente de banco de dados: nunca altera dados)`);
   if (EDITORS.has(name)) deny(`editor ${name} bloqueado no modo leitura`);
   if (ARCHIVERS.has(name)) deny(`${name} bloqueado no modo leitura (escreve arquivos)`);
   if (SYSTEM_PKG.has(name)) deny(`${name} bloqueado no modo leitura (instalação de pacotes do sistema)`);
@@ -334,7 +354,7 @@ function analyzeSimple(ctx, cmd, st, viaXargs = false, depth = 0) {
     if (ci >= 0) { analyzeString(ctx, args[ci + 1] ?? "", st, depth + 1); return; }
     const script = args.find((a) => !a.startsWith("-"));
     if (!script || script === "-") deny(`${name} lendo script da entrada padrão bloqueado no modo leitura`);
-    if (!inPluginRoot(script, st)) deny(`execução de script fora do plugin bloqueada no modo leitura: ${script}`);
+    if (!inPluginRoot(script, st) && !(ctx.mode === "fix" && inTarget(ctx, script, st))) deny(`execução de script fora do plugin bloqueada no modo leitura: ${script}`);
     return;
   }
   if (name === "node" || name === "nodejs" || name === "deno") {
@@ -342,7 +362,7 @@ function analyzeSimple(ctx, cmd, st, viaXargs = false, depth = 0) {
     const script = args.find((a) => !a.startsWith("-"));
     if (args.includes("-v") || args.includes("--version")) return;
     if (!script || script === "-") deny(`${name} lendo código da entrada padrão bloqueado no modo leitura`);
-    if (!inPluginRoot(script, st)) deny(`execução de script fora do plugin bloqueada no modo leitura (use npm run, com confirmação): ${script}`);
+    if (!inPluginRoot(script, st) && !(ctx.mode === "fix" && inTarget(ctx, script, st))) deny(`execução de script fora do plugin bloqueada no modo leitura (use npm run, com confirmação): ${script}`);
     return;
   }
   if (/^python[0-9.]*$/.test(name) || name === "ruby" || name === "php" || name === "perl") {
@@ -350,11 +370,11 @@ function analyzeSimple(ctx, cmd, st, viaXargs = false, depth = 0) {
     const script = args.find((a) => !a.startsWith("-"));
     if (args.includes("--version") || args.includes("-V") || args.includes("-v")) return;
     if (!script || script === "-") deny(`${name} lendo código da entrada padrão bloqueado no modo leitura`);
-    if (!inPluginRoot(script, st)) deny(`execução de script fora do plugin bloqueada no modo leitura: ${script}`);
+    if (!inPluginRoot(script, st) && !(ctx.mode === "fix" && inTarget(ctx, script, st))) deny(`execução de script fora do plugin bloqueada no modo leitura: ${script}`);
     return;
   }
   if (name === "npx" || name === "pnpx" || name === "bunx") deny(`${name} bloqueado no modo leitura (baixa e executa pacotes)`);
-  if (NPM_LIKE.has(name)) return analyzeNpmLike(name, args);
+  if (NPM_LIKE.has(name)) return analyzeNpmLike(name, args, ctx.mode);
   if (PKG_OTHER.has(name)) {
     const verb = args.find((a) => !a.startsWith("-"));
     if (name === "pip" || name === "pip3") { if (PKG_OTHER.get(name).includes(verb)) deny(`${name} ${verb} bloqueado no modo leitura`); return; }
@@ -387,6 +407,20 @@ function analyzeGit(args) {
   if (sub === "remote") { const v = rest.find((a) => !a.startsWith("-")); if (v && !["show", "get-url"].includes(v)) deny("git remote que altera remotos bloqueado no modo leitura"); return; }
   if (sub === "stash") { if (rest[0] === "list" || rest[0] === "show") return; deny("git stash bloqueado no modo leitura"); }
   deny(`git ${sub} bloqueado no modo leitura`);
+}
+
+function analyzeGitFix(args) {
+  let i = 0;
+  while (i < args.length && args[i].startsWith("-")) { if (GIT_GLOBAL_WITH_ARG.has(args[i])) i += 2; else i += 1; }
+  const sub = args[i]; if (sub === undefined || GIT_ALLOW.has(sub)) return;
+  const rest = args.slice(i + 1);
+  if (sub === "switch") { if (rest.some((a) => a === "-c" || a === "-C" || a === "--create" || a === "--force-create")) return; deny("git switch só é permitido para criar a branch do fix (-c)"); }
+  if (sub === "checkout") { if (rest.some((a) => a === "-b" || a === "-B")) return; deny("git checkout só é permitido para criar a branch do fix (-b); descartar alterações é bloqueado"); }
+  if (sub === "branch") { if (rest.some((a) => /^-[a-zA-Z]*[dDmMcCu]/.test(a) || /^--(delete|move|copy|set-upstream|unset-upstream|edit-description|force)/.test(a))) deny("git branch que altera branches existentes bloqueado"); return; }
+  if (sub === "config") { if (!rest.some((a) => ["--get", "--get-all", "--get-regexp", "--list", "-l", "--show-origin"].includes(a))) deny("git config que altera configuração bloqueado"); return; }
+  if (sub === "remote") { const v = rest.find((a) => !a.startsWith("-")); if (v && !["show", "get-url"].includes(v)) deny("git remote que altera remotos bloqueado"); return; }
+  if (sub === "tag") { if (rest.some((a) => a === "-l" || a === "--list") || !rest.length) return; deny("git tag bloqueado (criar tags é publicar versão)"); }
+  deny(`git ${sub} bloqueado no modo correção (commit, push, tag, reset, stash e similares só com pedido explícito do usuário, fora do /fix)`);
 }
 
 function analyzeCurl(ctx, args, st) {
@@ -426,13 +460,14 @@ function analyzeGh(args) {
   if (["view", "list", "status", "diff", "checks"].includes(sub[1])) return;
   deny(`gh ${sub.join(" ")} bloqueado no modo leitura (somente consulta)`);
 }
-function analyzeNpmLike(name, args) {
+function analyzeNpmLike(name, args, mode = "read") {
   const verb = args.find((a) => !a.startsWith("-"));
   if (name === "yarn" && verb === undefined) deny("yarn sem subcomando (install) bloqueado no modo leitura");
   if (verb === undefined) return;
   if (name === "bun" && /\.(m?[jt]s|cjs|tsx?)$/.test(verb)) deny(`bun executando arquivo bloqueado no modo leitura: ${verb}`);
   if (name === "npm" && verb === "audit" && args.includes("fix")) deny("npm audit fix bloqueado no modo leitura");
   if (verb === "audit" && args.includes("fix")) deny(`${name} audit fix bloqueado no modo leitura`);
+  if (mode === "fix") { if (FIX_NPM_BLOCK.has(verb)) deny(`${name} ${verb} bloqueado no modo correção (publica, executa pacotes ou altera a configuração do gerenciador)`); return; }
   if (NPM_BLOCK.has(verb)) deny(`${name} ${verb} bloqueado no modo leitura (instala/altera dependências ou publica)`);
 }
 
@@ -444,8 +479,8 @@ function analyzeString(ctx, str, st, depth = 0) {
 }
 
 // ───────────────────────── avaliação ─────────────────────────
-export function evaluate(input, targetRoot) {
-  const ctx = makeCtx(targetRoot);
+export function evaluate(input, targetRoot, mode = "read") {
+  const ctx = makeCtx(targetRoot, mode);
   const tool = input.tool_name;
   const ti = input.tool_input ?? {};
   const cwd = input.cwd ?? process.cwd();
@@ -488,12 +523,16 @@ function main() {
   try {
     if (!input || typeof input !== "object") deny("entrada do hook ilegível (falha fechada com lock ativo)");
     if (lock.state === "invalid") deny(`lock do modo leitura ilegível (falha fechada): ${lock.reason ?? ""}`);
-    evaluate(input, targetRoot);
+    evaluate(input, targetRoot, lock.data?.mode === "fix" ? "fix" : "read");
     process.exit(0);
   } catch (e) {
-    const msg = e instanceof Deny ? e.message : `erro interno do guard (bloqueado por segurança): ${e?.message ?? e}`;
+    const fixMode = lock.data?.mode === "fix";
+    let msg = e instanceof Deny ? e.message : `erro interno do guard (bloqueado por segurança): ${e?.message ?? e}`;
+    if (fixMode) msg = msg.replace(/no modo leitura/g, "no modo correção");
     log(targetRoot, `BLOQUEADO ${input?.tool_name ?? "?"}: ${msg}`);
-    process.stderr.write(`AI WebAudit (modo leitura): ${msg}\nO modo leitura só permite gravar em ${WEBAUDIT_DIR}/ e comandos que não alteram o projeto. Para corrigir problemas use /ai-webaudit:fix.\n`);
+    process.stderr.write(fixMode
+      ? `AI WebAudit (modo correção): ${msg}\nDurante o /ai-webaudit:fix ficam sempre proibidos: commit, push, tag, reset, deploy, banco de dados e publicação de pacotes. Commit só com pedido explícito do usuário, depois do fix.\n`
+      : `AI WebAudit (modo leitura): ${msg}\nO modo leitura só permite gravar em ${WEBAUDIT_DIR}/ e comandos que não alteram o projeto. Para corrigir problemas use /ai-webaudit:fix.\n`);
     process.exit(2);
   }
 }

@@ -105,9 +105,6 @@ function semanticChecks(data) {
         errors.push(`${at}: CRITICO exige nature CONFIRMADO, ou RISCO_POTENCIAL em SEC/API/PRIV com evidência concreta (file + snippet)`);
       }
     }
-    if (data.skill !== "fix" && f.fix_status && f.fix_status !== "aberto") {
-      errors.push(`${at}: auditoria só grava fix_status "aberto" (encontrado "${f.fix_status}")`);
-    }
 
     const text = JSON.stringify(f);
     for (const { name, re } of SECRET_PATTERNS) {

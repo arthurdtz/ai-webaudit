@@ -16,13 +16,13 @@ function run(input, rawStdin) {
   const r = spawnSync("node", [GUARD], { input: rawStdin ?? JSON.stringify(input), encoding: "utf8" });
   return { code: r.status, stderr: r.stderr };
 }
-function mkTarget({ lock = true, ageMs = 0, rawLock } = {}) {
+function mkTarget({ lock = true, ageMs = 0, rawLock, mode } = {}) {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "webaudit-guard-")));
   mkdirSync(join(dir, ".webaudit", "runs", "r1"), { recursive: true });
   if (lock) {
     const lockPath = join(dir, ".webaudit", ".lock");
     const created = new Date(Date.now() - ageMs).toISOString();
-    writeFileSync(lockPath, rawLock ?? JSON.stringify({ created_at: created, skill: "audit" }));
+    writeFileSync(lockPath, rawLock ?? JSON.stringify({ created_at: created, skill: mode === "fix" ? "fix" : "audit", ...(mode ? { mode } : {}) }));
     if (ageMs) { const t = new Date(Date.now() - ageMs); utimesSync(lockPath, t, t); }
   }
   return dir;
@@ -189,4 +189,72 @@ test("lock.mjs: acquire cria lock e exclude; recusa o diretório do plugin; rele
   assert.equal(JSON.parse(spawnSync("node", [LOCK, "status", t], { encoding: "utf8" }).stdout).state, "none");
   r = spawnSync("node", [LOCK, "acquire", ROOT], { encoding: "utf8" });
   assert.equal(r.status, 3, "alvo = diretório do plugin deve ser recusado");
+});
+
+// ───────── /ai-webaudit:fix: o modo leitura NÃO pode bloquear o fix; o que é SEMPRE proibido continua proibido ─────────
+test("fix: sem lock (estado normal do /fix) o guard não bloqueia nada", () => {
+  const t = mkTarget({ lock: false });
+  allowed(tool(t, "Edit", join(t, "index.html")));
+  allowed(tool(t, "Write", join(t, "src", "novo.js")));
+  allowed(bash(t, "echo corrigido > index.html"));
+  allowed(bash(t, "npm install"));
+});
+
+test("fix: lock de leitura esquecido de uma auditoria interrompida bloqueia; depois do release o /fix passa", () => {
+  const t = mkTarget();
+  blocked(tool(t, "Edit", join(t, "index.html")), "lock de leitura ativo");
+  const r = spawnSync("node", [join(ROOT, "scripts", "lock.mjs"), "release", t], { encoding: "utf8" }); assert.equal(r.status, 0);
+  allowed(tool(t, "Edit", join(t, "index.html")), "após release");
+  allowed(bash(t, "npm install"), "após release");
+});
+
+test("fix (lock mode=fix): escritas dentro do projeto → permite; fora, .git/ e o lock → bloqueia", () => {
+  const t = mkTarget({ mode: "fix" });
+  for (const f of ["index.html", "src/a.js", ".webaudit/runs/r1/fix-log.md", ".env.example"]) allowed(tool(t, "Edit", join(t, f)), f);
+  allowed(tool(t, "Write", "src/relativo.js"));
+  const fixBlocked = (r, m) => { assert.equal(r.code, 2, `esperava bloqueio: ${m}`); assert.match(r.stderr, /modo correção/); };
+  fixBlocked(tool(t, "Write", "/tmp/fora.txt"), "fora do projeto");
+  fixBlocked(tool(t, "Write", join(t, ".git", "config")), ".git");
+  fixBlocked(tool(t, "Write", join(t, ".webaudit", ".lock")), "lock");
+  fixBlocked(tool(t, "Write", join(t, "..", "irmao.txt")), "..");
+  fixBlocked(tool(t, "Write", t), "raiz");
+});
+
+test("fix (lock mode=fix): Bash legítimo → permite", () => {
+  const t = mkTarget({ mode: "fix" });
+  mkdirSync(join(t, "src"), { recursive: true });
+  for (const c of [
+    "npm install", "npm install left-pad", "npm update", "npm run build", "npm test", "npm audit", "pnpm add x", "yarn add x",
+    "git status", "git diff", "git log --oneline -3", "git branch", "git switch -c webaudit/fix-2026-11-07_1000", "git checkout -b webaudit/fix-x", "git branch webaudit/fix-y", "git config --get user.name",
+    "rm src/velho.js", "mkdir -p src/lib", "touch src/novo.js", "cp src/a.js src/b.js", "mv src/a.js src/c.js", "echo x > index.html", "echo x >> src/log.txt", "cat a | tee src/b.txt",
+    `node ${join(t, "src", "check.js")}`, "grep -rn lorem .", "ls -la",
+  ]) allowed(bash(t, c), c);
+});
+
+test("fix (lock mode=fix): SEMPRE proibido, inclusive no /fix → bloqueia (SPEC §9.4)", () => {
+  const t = mkTarget({ mode: "fix" });
+  for (const c of [
+    "git commit -m x", "git commit --amend", "git push origin main", "git push", "git tag v1", "git reset --hard", "git reset HEAD~1", "git clean -fd", "git checkout -- .", "git checkout main", "git switch main", "git stash", "git rebase main", "git merge x", "git pull", "git add -A", "git restore .", "git branch -D x", "git remote add o u", "git config user.name x",
+    "vercel deploy", "vercel --prod", "netlify deploy --prod", "firebase deploy", "wrangler deploy", "aws s3 sync . s3://b", "docker run x", "kubectl apply -f x",
+    "psql -c 'drop table x'", "mysql -e 'delete from x'", "mongosh --eval x", "redis-cli flushall", "sqlite3 db.sqlite 'delete from t'", "prisma migrate deploy", "npx prisma db push",
+    "npm audit fix", "npm audit fix --force", "npm publish", "npm exec x", "npx some-tool", "pnpm dlx x", "npm login", "npm version patch", "npm config set x y",
+    "curl -X POST https://x", "curl -d a=b https://x", "scp a h:/x", "rsync -a . h:/x", "ssh h", "nc h 1", "sudo ls",
+    "rm -rf /", "rm -rf .", "rm -rf .git", "rm -rf ..", "rm /etc/passwd", "echo x > /etc/passwd", "echo x > ../fora.txt", "cp a /tmp/x", "mv a /tmp/x", "rm -rf $DIR", "echo x > $F",
+    "node -e \"1\"", "python3 -c 'print(1)'", "source x.sh", "bash -c 'git push'", "eval 'git commit -m x'", "echo $(git commit -m x)", "true && git push",
+  ]) {
+    const r = bash(t, c); assert.equal(r.code, 2, `esperava bloqueio: ${c}`); assert.match(r.stderr, /modo correção/, c);
+  }
+});
+
+test("fix: lock mode=fix expirado (> 2 h) → permite tudo; lock.mjs grava o modo", () => {
+  const t = mkTarget({ mode: "fix", ageMs: 2 * 60 * 60 * 1000 + 60000 });
+  allowed(bash(t, "git commit -m x"));
+  const t2 = realpathSync(mkdtempSync(join(tmpdir(), "webaudit-lock-")));
+  const LOCK = join(ROOT, "scripts", "lock.mjs");
+  assert.equal(spawnSync("node", [LOCK, "acquire", t2, "--skill", "fix", "--mode", "fix", "--run", "r1"], { encoding: "utf8" }).status, 0);
+  assert.equal(JSON.parse(spawnSync("node", [LOCK, "status", t2], { encoding: "utf8" }).stdout).data.mode, "fix");
+  assert.equal(spawnSync("node", [LOCK, "acquire", t2, "--mode", "x"], { encoding: "utf8" }).status, 2);
+  // lock de modo fix recém-criado: confina as escritas ao projeto e bloqueia commit
+  assert.equal(run({ tool_name: "Bash", tool_input: { command: "git commit -m x" }, cwd: t2 }).code, 2);
+  assert.equal(run({ tool_name: "Edit", tool_input: { file_path: join(t2, "a.html") }, cwd: t2 }).code, 0);
 });

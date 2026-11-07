@@ -147,3 +147,87 @@ test("consolidate: segredo não mascarado no achado falha a validação (sem rep
   const r = consolidate(run); assert.equal(r.status, 1, r.stdout);
   assert.match(r.stderr, /segredo não mascarado/);
 });
+
+// ───────── Etapa 9: pre-launch, optimize e fix-status (sem modelo) ─────────
+const FIXSTATUS = join(ROOT, "scripts", "fix-status.mjs");
+const fixStatus = (...a) => spawnSync("node", [FIXSTATUS, ...a], { encoding: "utf8" });
+
+test("pre-launch: veredito no topo (SIM/NÃO IDENTIFICADOS) e checklist manual pós-publicação (seção 9)", () => {
+  const withCrit = mkRun({ agents: perfectAgents() });
+  writeFileSync(join(withCrit.run, "run.json"), JSON.stringify({ run_id: "2026-11-07_1000", skill: "pre-launch", arguments: "--static-only", target_path: withCrit.target, collection_modes: ["estatica"] }));
+  assert.equal(consolidate(withCrit.run).status, 0);
+  const md = readFileSync(join(withCrit.run, "report.md"), "utf8").split("\n");
+  assert.match(md[2], /^> \*\*Bloqueadores conhecidos: SIM \(\d+\)\*\*/); // logo abaixo do título
+  assert.match(md[2], /não\*\* garante/);
+  assert.ok(md.join("\n").includes("## 9. Checklist manual pós-publicação"));
+  for (const t of ["Search Console", "Perfil da Empresa", "formulário em produção", "Monitoramento"]) assert.ok(md.join("\n").includes(t), t);
+  // sem críticos
+  const none = mkRun({ agents: { a: { findings: [agentFinding(EXPECTED.must_find.find((m) => m.min_severity === "MELHORIA"))] } } });
+  writeFileSync(join(none.run, "run.json"), JSON.stringify({ run_id: "2026-11-07_1000", skill: "pre-launch", arguments: "", target_path: none.target, collection_modes: ["estatica"] }));
+  assert.equal(consolidate(none.run).status, 0);
+  const md2 = readFileSync(join(none.run, "report.md"), "utf8");
+  assert.match(md2.split("\n")[2], /Bloqueadores conhecidos: NÃO IDENTIFICADOS/); assert.match(md2, /não\*\* garante ausência de problemas/);
+  // o audit comum NÃO tem veredito nem checklist
+  const audit = mkRun({ agents: perfectAgents() }); consolidate(audit.run);
+  const mda = readFileSync(join(audit.run, "report.md"), "utf8"); assert.doesNotMatch(mda, /Bloqueadores conhecidos: (SIM|NÃO)\s*\(?\d*\)?\*\* —/); assert.ok(!mda.includes("## 9."));
+});
+
+test("optimize: objetivo no relatório e plano em fases com ★ nas áreas do objetivo", () => {
+  const { run, target } = mkRun({ agents: perfectAgents() });
+  writeFileSync(join(run, "run.json"), JSON.stringify({ run_id: "2026-11-07_1000", skill: "optimize", arguments: "aumentar conversão --static-only", objective: "aumentar conversão", objective_areas: ["CRO", "ANL", "PERF"], target_path: target, collection_modes: ["estatica"] }));
+  assert.equal(consolidate(run).status, 0);
+  const md = readFileSync(join(run, "report.md"), "utf8");
+  assert.match(md, /> \*\*Objetivo:\*\* aumentar conversão/); assert.ok(md.includes("## 9. Plano de implementação em fases"));
+  for (const h of ["Fase 0 — Corrigir primeiro", "Fase 1 — Ganhos rápidos", "Fase 2 — Melhorias de médio esforço", "Fase 3 — Mudanças estruturais"]) assert.ok(md.includes(h), h);
+  assert.match(md, /\| ★ \| `WA-CRO-001`/); assert.match(md, /Não há estimativa de ganho/);
+  const plan = md.slice(md.indexOf("## 9.")); assert.match(plan, /\|  \| `WA-SEO-/); // área fora do objetivo sem ★
+});
+
+test("fix-status: resolve, select (IDs e --all-critical), set com validação, fix-log e proteção contra IDs inválidos", () => {
+  const { target, run } = mkRun({ agents: perfectAgents() }); consolidate(run);
+  const f = JSON.parse(readFileSync(join(run, "findings.json"), "utf8")).findings;
+  const crit = f.filter((x) => x.severity === "CRITICO"); assert.ok(crit.length >= 4);
+  let r = fixStatus("resolve", target); assert.equal(r.status, 0, r.stderr); assert.equal(r.stdout.trim(), run);
+  assert.equal(fixStatus("resolve", target, "--run", "2000-01-01_0000").status, 2);
+  r = fixStatus("select", run, "--all-critical"); const sel = JSON.parse(r.stdout); assert.equal(sel.selected.length, crit.length);
+  assert.equal(fixStatus("select", run, "WA-SEC-999").status, 2); assert.equal(fixStatus("select", run, "xx").status, 2);
+  const one = crit[0].id;
+  r = fixStatus("set", run, one, "autorizado"); assert.equal(r.status, 0, r.stderr);
+  r = fixStatus("set", run, one, "validado", "--files", "a.js,b.js", "--validation", "grep sem ocorrências"); assert.equal(r.status, 0, r.stderr);
+  assert.equal(JSON.parse(readFileSync(join(run, "findings.json"), "utf8")).findings.find((x) => x.id === one).fix_status, "validado");
+  const log = readFileSync(join(run, "fix-log.md"), "utf8"); assert.ok(log.includes(one) && log.includes("validado") && log.includes("`a.js`") && log.includes("grep sem ocorrências"));
+  assert.equal(fixStatus("set", run, one, "pronto").status, 2); assert.equal(fixStatus("set", run, "WA-SEC-999", "validado").status, 2);
+  // --all-critical pula o já validado
+  const sel2 = JSON.parse(fixStatus("select", run, "--all-critical").stdout); assert.equal(sel2.selected.length, crit.length - 1); assert.equal(sel2.skipped[0].id, one);
+  // descartado só reabre se pedido explicitamente... e nunca via --all-critical
+  fixStatus("set", run, crit[1].id, "descartado");
+  assert.ok(JSON.parse(fixStatus("select", run, "--all-critical").stdout).skipped.some((s) => s.id === crit[1].id));
+  assert.equal(JSON.parse(fixStatus("summary", run).stdout).by_fix_status.validado, 1);
+  // fora de .webaudit/runs → recusa
+  assert.equal(fixStatus("summary", target).status, 2);
+});
+
+test("check-skills.mjs (harness de run-skills.sh): aprova runs sintéticos de pre-launch/optimize e fluxo fix → gone", () => {
+  const CHK = join(ROOT, "tests", "check-skills.mjs"); const chk = (...a) => spawnSync("node", [CHK, ...a], { encoding: "utf8" });
+  const pre = mkRun({ agents: perfectAgents() });
+  const meta = (r, extra) => writeFileSync(join(r.run, "run.json"), JSON.stringify({ run_id: "2026-11-07_1000", target_path: r.target, collection_modes: ["estatica"], arguments: "", ...extra }));
+  meta(pre, { skill: "pre-launch" });
+  writeFileSync(join(pre.run, "areas.json"), JSON.stringify({ areas_selected: ["QA", "SEO", "PRIV", "A11Y", "PERF", "OPS", "API", "SEC", "ANL", "CRO"], areas_excluded: ["GEO", "AEO", "AIO", "LOC", "CONT"].map((area) => ({ area, reason: "fora do foco do pre-launch" })) }));
+  writeFileSync(join(pre.run, "agents", "all-agents.json"), JSON.stringify({ findings: EXPECTED.must_find.filter((m) => !["GEO", "AEO", "AIO", "LOC", "CONT"].includes(m.area)).map((m) => agentFinding(m)) }));
+  assert.equal(consolidate(pre.run).status, 0);
+  let r = chk("prelaunch", pre.run); assert.equal(r.status, 0, r.stdout);
+  const ids = chk("pick", pre.run).stdout.trim().split(" "); assert.equal(ids.length, 3);
+  // optimize
+  const opt = mkRun({ agents: perfectAgents() }); meta(opt, { skill: "optimize", arguments: "aumentar conversão --static-only", objective: "aumentar conversão", objective_areas: ["CRO", "ANL", "PERF"] });
+  writeFileSync(join(opt.run, "areas.json"), JSON.stringify({ areas_selected: ["CRO", "ANL", "PERF", "QA", "A11Y"], areas_excluded: ["SEO", "GEO", "AEO", "AIO", "PRIV", "LOC", "OPS", "CONT", "API", "SEC"].map((area) => ({ area, reason: "fora do objetivo" })) }));
+  writeFileSync(join(opt.run, "agents", "all-agents.json"), JSON.stringify({ findings: EXPECTED.must_find.filter((m) => ["CRO", "ANL", "PERF", "QA", "A11Y"].includes(m.area)).map((m) => agentFinding(m)) }));
+  assert.equal(consolidate(opt.run).status, 0); r = chk("optimize", opt.run); assert.equal(r.status, 0, r.stdout);
+  assert.equal(chk("optimize", pre.run).status, 1, "um run de pre-launch NÃO passa na verificação do optimize");
+  // fix → fixed → gone
+  for (const id of ids) assert.equal(fixStatus("set", pre.run, id, "validado", "--files", "x", "--validation", "ok").status, 0);
+  assert.equal(chk("fixed", pre.run, ...ids).status, 0);
+  assert.equal(chk("fixed", pre.run, "WA-SEO-999").status, 1);
+  const after = mkRun({ agents: { a: { findings: EXPECTED.must_find.filter((m) => !["QA-C11", "A11Y-C03", "SEO-C06"].includes(m.check_id)).map((m) => agentFinding(m)) } } }); consolidate(after.run);
+  assert.equal(chk("gone", after.run, pre.run, ...ids).status, 0, "achados corrigidos sumiram");
+  assert.equal(chk("gone", pre.run, pre.run, ...ids).status, 1, "no mesmo run os achados ainda aparecem");
+});

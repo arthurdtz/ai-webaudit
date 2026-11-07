@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Lock do modo leitura: Fase 0 (acquire) e Fase 6 (release).
-//   node scripts/lock.mjs acquire <alvo> [--skill audit] [--run <AAAA-MM-DD_HHMM>] [--force]
+//   node scripts/lock.mjs acquire <alvo> [--skill audit] [--run <AAAA-MM-DD_HHMM>] [--mode read|fix] [--force]
+//     --mode read (padrão): modo leitura (só grava em .webaudit/). --mode fix: /fix — só o que é SEMPRE proibido (commit, push, deploy, banco…) e escritas confinadas ao projeto.
 //   node scripts/lock.mjs release <alvo>
 //   node scripts/lock.mjs status  <alvo>
 // acquire: recusa o diretório do plugin como alvo (exit 3); cria <alvo>/.webaudit/; adiciona
@@ -19,6 +20,7 @@ if (!["acquire", "release", "status"].includes(cmd) || !targetArg) {
   die(2, "uso: node scripts/lock.mjs <acquire|release|status> <alvo> [--skill s] [--run id] [--force]");
 }
 const flag = (name) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : undefined; };
+if (flag("--mode") && !["read", "fix"].includes(flag("--mode"))) die(2, "--mode deve ser read ou fix");
 
 let target;
 try { target = realpathSync(resolve(targetArg)); } catch { die(5, `alvo não encontrado: ${targetArg}`); }
@@ -62,12 +64,13 @@ try {
     created_at: now.toISOString(),
     expires_at: new Date(now.getTime() + LOCK_TTL_MS).toISOString(),
     skill: flag("--skill") ?? null,
+    mode: flag("--mode") ?? "read",
     run_id: flag("--run") ?? null,
     target_path: target,
     pid: process.ppid,
   };
   writeFileSync(lockPath, JSON.stringify(data, null, 2) + "\n");
-  console.log(`Lock criado: ${lockPath} (válido por 2 h)`);
+  console.log(`Lock criado: ${lockPath} (modo ${data.mode}, válido por 2 h)`);
 } catch (e) {
   die(5, `não foi possível criar o lock: ${e.message}`);
 }

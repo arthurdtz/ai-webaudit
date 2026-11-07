@@ -21,7 +21,8 @@ fi
 
 TS="$(date +%Y%m%d-%H%M%S)-$$"
 WORK="/tmp/webaudit-fixture-$TS"
-mkdir -p "$WORK" || exit 2
+LOGS="$WORK.logs"   # logs do harness FORA da cópia (senão aparecem como "alteração no alvo")
+mkdir -p "$WORK" "$LOGS" || exit 2
 cp -R "$ROOT/tests/fixtures/sample-site/." "$WORK/"
 git -C "$WORK" init -q -b main
 git -C "$WORK" add -A
@@ -38,7 +39,7 @@ if [ "${1:-}" = "--prepare-only" ]; then
 Rode manualmente (a auditoria usa subagentes e consome tokens):
 
   cd $WORK
-  $(printf "%q " "${CMD[@]}")< /dev/null | tee $WORK/claude-output.json
+  $(printf "%q " "${CMD[@]}")< /dev/null | tee $LOGS/claude-output.json
 
 Ou, de forma interativa:
 
@@ -55,18 +56,18 @@ MSG
 fi
 
 echo "Executando: ${CMD[*]}"
-( cd "$WORK" && "${CMD[@]}" < /dev/null > "$WORK/claude-output.json" 2> "$WORK/claude-stderr.txt" ); RC=$?
-if grep -qiE "Failed to authenticate|OAuth session expired|not logged in" "$WORK/claude-output.json" "$WORK/claude-stderr.txt" 2>/dev/null; then
+( cd "$WORK" && "${CMD[@]}" < /dev/null > "$LOGS/claude-output.json" 2> "$LOGS/claude-stderr.txt" ); RC=$?
+if grep -qiE "Failed to authenticate|OAuth session expired|not logged in" "$LOGS/claude-output.json" "$LOGS/claude-stderr.txt" 2>/dev/null; then
   echo "ERRO: o claude não está autenticado (rode 'claude' e faça login) — a auditoria não rodou." >&2
   echo "Para rodar manualmente: tests/run-fixture.sh --prepare-only" >&2
   exit 3
 fi
-echo "claude saiu com código $RC (saída em $WORK/claude-output.json)"
+echo "claude saiu com código $RC (saída em $LOGS/claude-output.json)"
 
 LATEST="$(cat "$WORK/.webaudit/latest" 2>/dev/null | tr -d '\n')"
 FINDINGS="$WORK/.webaudit/runs/$LATEST/findings.json"
 if [ -z "$LATEST" ] || [ ! -f "$FINDINGS" ]; then
-  echo "ERRO: a auditoria não gerou findings.json (veja $WORK/claude-output.json e $WORK/.webaudit/)." >&2
+  echo "ERRO: a auditoria não gerou findings.json (veja $LOGS/claude-output.json e $WORK/.webaudit/)." >&2
   exit 4
 fi
 echo "findings.json: $FINDINGS"

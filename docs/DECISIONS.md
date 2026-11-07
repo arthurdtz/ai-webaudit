@@ -284,3 +284,45 @@ cd /root/projects/ai-webaudit && tests/run-fixture.sh          # após `claude` 
 # ou: tests/run-fixture.sh --prepare-only   → imprime os comandos para rodar na mão
 ```
 Cole a saída (principalmente o bloco "Gabarito") para registrar o resultado real e o que falhou — sem ajustar nada antes.
+
+## Etapa 8 — RESULTADO REAL do teste na fixture (2026-11-07, executado pelo usuário)
+Comando: `tests/run-fixture.sh` → `claude -p "/ai-webaudit:audit --static-only"` (sem `--bare`, `--permission-mode dontAsk`), modelo **claude-sonnet-5-5**. **Nada foi ajustado** nas referências, agentes, fixture ou gabarito; abaixo, só o registro. (Única alteração de código após o teste: o *harness* `run-fixture.sh`, ver "Falhas do harness".)
+
+### Números
+| Item | Resultado |
+|---|---|
+| Execução | 11 turnos, **3 min 42 s**, **US$ 2,67** (≈ 110 mil tokens de saída, 1,7 M de cache lido), `is_error: false` |
+| Achados | **65** (5 críticos, 25 importantes, 35 melhorias, 0 opcionais) |
+| `must_find` | **25/28 = 89,3%** (meta 80% ✔). Por área: SEO 3/3 · GEO 1/1 · AEO 1/1 · AIO 1/1 · CRO 1/1 · QA 2/2 · ANL 1/2 · PERF 0/1 · A11Y 4/4 · PRIV 2/2 · LOC 2/2 · CONT 1/1 · OPS 1/1 · API 2/3 · SEC 3/3 |
+| `must_not_flag` | **1 apontado** (meta 0) → **REPROVADO** pelo critério da SPEC §11 |
+| Fora do gabarito | 40 (amostra conferida: todos têm base no código da fixture — ver abaixo) |
+| Não testado | 84 itens; `lighthouse`, `axe-core`, `playwright` como `skipped` (modo `--static-only`) |
+| Consolidação | 0 achados rejeitados, 0 fusões, 0 saídas de subagente inválidas; 17 `related_check_id` órfãos |
+| Alvo | `git status` sem alterações **do plugin** e HEAD inalterado (as únicas "alterações" eram os logs do harness) |
+| Lock | liberado ao final (`latest` = `2026-11-07_1328`) |
+
+### Os 4 pontos que reprovaram (causa, sem correção aplicada)
+1. **`OK05` `CRO-C08` em `contato.html` (must_not_flag apontado)** — **falso positivo do comparador, não erro do agente.** O achado `WA-CRO-001` é sobre o link de `index.html`; a evidência de `contato.html` foi citada **como contraste** ("o link da página de contato usa o formato correto"). `compare.mjs` conta **qualquer** evidência que cite o arquivo. *Origem:* semântica do gabarito/comparador (evidência de contraste).
+2. **`F11` `ANL-C08` veio `IMPORTANTE`/`RISCO_POTENCIAL` (esperado `CRITICO`)** — **o subagente tem razão.** O `js/analytics.js` da fixture define `gtag()` e `config`, mas **não carrega o `gtag.js`** (e o ID é placeholder): o evento com e-mail/telefone hoje não é transmitido. A referência `ANL-C08` só dá `CRITICO` quando o código "comprovadamente envia PII clara". *Origem:* **defeito do gabarito/fixture** (a fixture não materializa o envio).
+3. **`F24` `API-C08` veio `IMPORTANTE` (esperado `CRITICO`)** — o agente marcou `CONFIRMADO` mas limitou a `IMPORTANTE` porque a lista `leads` é um **array em memória** e "o comportamento em produção não foi verificado". A referência permite `CRITICO` (`CONFIRMADO` por código) sem autenticação em todo o caminho lido. *Origem:* **conservadorismo do subagente** em relação à referência (discutível: o dado em memória é real em instância quente).
+4. **`F12` `PERF-C04` MISSING** — **o defeito foi encontrado, com outro ID:** `WA-PERF-001` é `PERF-C03` (`IMPORTANTE`, `loading="lazy"` na imagem do herói). `PERF-C03` ("elemento de LCP descobrível e priorizado": "não usa `loading="lazy"`") e `PERF-C04` ("lazy loading correto") **cobrem o mesmo defeito**. O agente listou `PERF-C04` apenas em `related_check_ids` (órfão). *Origem:* **sobreposição entre duas verificações da referência 08** (viola "uma área dona" no nível do check) + gabarito que exige um `check_id` específico.
+
+### Observações do teste real
+- **O hook funcionou em sessão real:** `guard.log` registra **1 bloqueio legítimo** — `Bash: mkdir fora de .webaudit/ bloqueado… $RUN/raw` (o orquestrador usou **variável de shell**, que o guard trata como destino dinâmico). O orquestrador se adaptou e seguiu. **Não exercitado ainda:** `Write` fora de `.webaudit/` nem tentativa dentro de subagente. *Ação sugerida (não aplicada):* o §9 de `00-orchestrator.md` deve mandar usar **caminhos literais, sem variáveis de shell**.
+- **Contrato JSON dos subagentes:** 8/8 válidos; nenhum rejeitado. Desvio menor: `release-qa` usou `errors[]` para listar observações que deixou a outros agentes (o campo é para falhas de leitura/ferramenta).
+- **Fidelidade às regras:** sem "site pronto/seguro/conforme"; resposta final curta e correta (contagens, 5 críticos, "não testado", caminho do relatório, próximos comandos); **não** inventou métricas (marcou PERF/axe/contraste como não testados) e reconheceu que o efeito no LCP não foi medido.
+- **`related_check_id` órfãos (17):** são referências a checks sem achado (esperado); o orquestrador os citou na resposta como "ponto de atenção", o que é ruído. *Ação sugerida:* tratar como informativo.
+- **Extras (40) — amostra conferida, todos reais no código da fixture:** link `sobre.html` inexistente (`QA-C01`, `CRITICO`, menu principal), formulário de orçamento sem destino (`QA-C04`, `CRITICO`), sem 404/favicon/Open Graph, sem README, `.env` na pasta publicável (`API-C12`), CSP ausente com XSS comprovado (`API-C02` `IMPORTANTE`, coerente com a referência), `PRIV-C02/C06/C07/C08/C10`, `CONT-C01/C03/C04/C05`, `LOC-C01/C04`, etc. Nenhum item parece alucinado. Há **sobreposição de causa raiz entre áreas** em alguns (ex.: `SEO-C15` × `CONT-C02` na data futura; `GEO-C04/C06` × `LOC-C02`), ligadas por `related_ids`.
+- **Relatório:** `report.md` com **102 KB** para 65 achados (todos detalhados). Legível, mas pesado; avaliar no resumo/versão compacta (Etapa 10).
+- **Custo:** US$ 2,67 por auditoria estática da fixture (3 páginas). Com coleta local e sites maiores será maior; a skill não impõe teto.
+- **Verificações da etapa:** (a) alvo não alterado ✔; (b) recusa quando o diretório atual é o plugin — **ainda não testada em sessão real**; (c) `claude plugin validate` ✔.
+
+### Falhas do harness (corrigidas fora do critério "não ajustar")
+- `tests/run-fixture.sh` gravava `claude-output.json` e `claude-stderr.txt` **dentro** da cópia e depois reportava "ALTERAÇÕES no alvo". Agora vão para `<cópia>.logs/`. Sem relação com o plugin.
+
+### Opções para decidir (nenhuma aplicada)
+- **A.** `compare.mjs` considerar só a **evidência primária** (primeira) no `must_not_flag` (ou ignorar evidência marcada como contraste) → elimina o falso positivo `OK05`.
+- **B.** `F11`: fazer a fixture **carregar o `gtag.js`** (envio real) **ou** baixar o `min_severity` para `IMPORTANTE`.
+- **C.** `F24`: manter `CRITICO` (e reforçar na referência `API-C08` que array em memória não rebaixa) **ou** aceitar `IMPORTANTE`.
+- **D.** `F12`: tirar a sobreposição na referência 08 (`PERF-C03` = descoberta/prioridade; `PERF-C04` = só `lazy`) **ou** permitir `alt_check_ids` no gabarito.
+- Aplicando A+B+D (sem tocar nos agentes) o teste chegaria a 27/28 ou 28/28 com 0 violações; **cada opção é decisão do usuário** para evitar *overfitting*.

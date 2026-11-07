@@ -334,3 +334,28 @@ Comando: `tests/run-fixture.sh` → `claude -p "/ai-webaudit:audit --static-only
 - **C (`API-C08`) NÃO aplicada:** `F24` segue exigindo `CRITICO`; o agente deu `IMPORTANTE` (array em memória). Fica como possível falha da próxima execução.
 - **Efeito já verificável sem modelo:** o comparador novo sobre o `findings.json` da execução real anterior dá **25/28 = 89,3% e 0 `must_not_flag` → APROVADO** (antes: REPROVADO por `OK05`). `F11`, `F12` e `F24` dependem de **nova execução** com a fixture e a referência alteradas; **ainda não rodada** (esta sessão está sem autenticação do `claude`). Testes: 23 passam (14 guard + 9 pipeline), `claude plugin validate` ✔.
 - **Não aplicado (apenas sugerido):** o §9 do `00-orchestrator.md` ainda não proíbe variáveis de shell nos comandos; o guard bloqueou um `mkdir $RUN/raw` na execução real.
+
+## Etapa 8 — SEGUNDO teste real da fixture, após A, B e D (2026-11-07, executado pelo usuário)
+Mesmo comando, mesmo modelo (`claude-sonnet-5-5`), nada alterado entre os ajustes e a execução.
+
+| Item | 1ª execução | 2ª execução |
+|---|---|---|
+| `must_find` | 25/28 = 89,3% | **28/28 = 100%** (todas as 15 áreas 100%) |
+| `must_not_flag` apontados | 1 (`OK05`) | **1 (`OK08`)** |
+| Resultado | REPROVADO | **REPROVADO** (recall 100%, 1 `must_not_flag`) |
+| Achados | 65 (5 crít.) | 64 (7 crít.: 5 + `ANL-C08` e `API-C08`) |
+| Fora do gabarito | 40 | 36 |
+| Custo | US$ 2,67 | **US$ 3,29** |
+| Alvo | só logs do harness | **0 alterações**, HEAD inalterado ✔ |
+| Rejeitados / fusões / saídas inválidas | 0 / 0 / 0 | 0 / 0 / 0 |
+| `related_check_id` órfãos | 17 | 21 |
+
+- **B, D funcionaram:** `F11` `ANL-C08` agora `CRITICO` (a fixture envia a PII); `F12` `PERF-C04` achado como `PERF-C04` (único achado de lazy; sem `PERF-C03`). **A funcionou** (`OK05` não aparece mais).
+- **`F24` `API-C08` veio `CRITICO` desta vez, sem alteração (opção C não aplicada):** a mesma entrada deu `IMPORTANTE` na 1ª execução. **Há variância entre execuções do modelo** em casos de fronteira de severidade; o gabarito de `F24` passou por sorte relativa. Registrar: uma execução não prova estabilidade.
+- **`OK08` `API-C04` `vercel.json` (único `must_not_flag`) — de novo falso positivo do gabarito/comparador, não erro do agente.** O achado `WA-API-008` diz "Sem Referrer-Policy e Permissions-Policy… **Apenas `nosniff` está configurado**": correto e **não** acusa a falta do `nosniff`. Como evidência primária ele cita a linha `nosniff` da config (o que *existe*), e o `match: nosniff` do gabarito casa com esse trecho. O `match` por evidência não distingue "o achado mostra o acerto" de "o achado acusa o acerto". *Origem:* semântica de `must_not_flag`/`match`.
+- **Guard em sessão real, de novo:** `guard.log` com **2 bloqueios legítimos**: (1) `mkdir $R/raw` (variável de shell) — **repetiu** o problema da 1ª execução; (2) `node -e` (interpretador inline) ao filtrar a saída do `consolidate.mjs` com um *pipe*. O orquestrador se recuperou nos dois. **Confirma o hook e o bloqueio de código inline; ainda não exercitado:** `Write` fora de `.webaudit/`, tentativas de dentro de subagente, recusa da skill no diretório do plugin.
+- **Relatório:** `report.md` com 104 KB.
+- **Qualidade dos extras (36):** mesma conclusão da 1ª execução (achados reais da fixture; sobreposição de causa raiz entre áreas ligada por `related_ids`). Itens novos nesta execução: `PRIV-C03`, `ANL-C04` `IMPORTANTE`, `API-C12` `IMPORTANTE`, `CRO-C07` (viewport sem zoom + widget), `PERF-C10` (cache sem `Cache-Control` explícito) — todos plausíveis.
+
+### Opção sugerida (NÃO aplicada)
+- **E.** `must_not_flag` aceitar **`title_match`** (termos no **título** do achado) em vez de depender de `match` na evidência. `OK08` passaria a ser `title_match: "X-Content-Type-Options|nosniff"`: só viola se o **título** acusar o cabeçalho que existe. Seria a segunda correção do comparador/gabarito (A foi a primeira). Com E, o resultado desta execução fica **28/28 e 0 violações → APROVADO**.

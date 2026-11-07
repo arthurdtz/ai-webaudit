@@ -13,7 +13,7 @@
     ],
     "semantics": {
       "must_find": "Existe achado com este check_id cujas evidências citam este arquivo (ou parte dele) e severidade >= min_severity.",
-      "must_not_flag": "Não existe achado com este check_id e severidade >= MELHORIA cuja evidência PRIMÁRIA (a primeira) cite este arquivo; evidências seguintes (ex.: contraste com o trecho correto) não contam. Quando 'match' existe, a evidência primária também precisa conter um dos termos (separados por |)."
+      "must_not_flag": "Não existe achado com este check_id e severidade >= MELHORIA cuja evidência PRIMÁRIA (a primeira) cite este arquivo; evidências seguintes (ex.: contraste com o trecho correto) não contam. Quando 'match' existe, a evidência primária também precisa conter um dos termos (separados por |). Quando 'title_match' existe, o achado só viola se o TÍTULO contiver um dos termos (sem diferenciar maiúsculas); 'title_match' tem prioridade para acertos cuja evidência mostra o trecho correto."
     }
   },
   "must_find": [
@@ -292,8 +292,8 @@
       "id": "OK08",
       "check_id": "API-C04",
       "file": "vercel.json",
-      "match": "nosniff",
-      "reason": "`X-Content-Type-Options: nosniff` presente."
+      "reason": "`X-Content-Type-Options: nosniff` presente. Um achado sobre OUTROS cabeçalhos ausentes (ex.: Referrer-Policy) que mostre essa linha como evidência do que já existe NÃO viola; só viola se o título acusar a falta do nosniff.",
+      "title_match": "X-Content-Type-Options|nosniff"
     },
     {
       "id": "OK09",

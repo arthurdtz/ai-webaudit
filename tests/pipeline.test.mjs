@@ -104,6 +104,15 @@ test("compare: evidência de contraste (2ª evidência no arquivo do acerto) NÃ
   assert.match(compare(join(t2.run, "findings.json")).stdout, /MUST_NOT_FLAG apontados: 1/);
 });
 
+test("compare: title_match (OK08) — achado sobre OUTRO cabeçalho com a linha nosniff como evidência NÃO viola; título acusando o nosniff viola", () => {
+  const ok = EXPECTED.must_not_flag.find((n) => n.id === "OK08"); assert.ok(ok.title_match, "OK08 deve usar title_match");
+  const mk = (title) => { const a = perfectAgents(); a["all-agents"].findings.push(agentFinding({ check_id: "API-C04", area: "API", file: "vercel.json", min_severity: "MELHORIA" }, { title, evidence: [{ type: "configuracao", file: "vercel.json", line: 6, snippet: '{ "key": "X-Content-Type-Options", "value": "nosniff" }' }] })); return mkRun({ agents: a }); };
+  const good = mk("Sem Referrer-Policy e Permissions-Policy na configuração"); consolidate(good.run);
+  const rg = compare(join(good.run, "findings.json")); assert.equal(rg.status, 0, rg.stdout); assert.match(rg.stdout, /MUST_NOT_FLAG apontados: 0/);
+  const bad = mk("Sem X-Content-Type-Options: nosniff na configuração"); consolidate(bad.run);
+  const rb = compare(join(bad.run, "findings.json")); assert.equal(rb.status, 1); assert.match(rb.stdout, /MUST_NOT_FLAG apontados: 1/);
+});
+
 test("consolidate: rejeita achado inválido (vai para não testado), JSON ruidoso é recuperado, JSON quebrado é ignorado", () => {
   const good = agentFinding(EXPECTED.must_find[0]);
   const bad = agentFinding(EXPECTED.must_find[1], { severity: "GRAVISSIMO" });

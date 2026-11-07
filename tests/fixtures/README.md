@@ -14,7 +14,7 @@ Site estático **fictício** (Sorriso Bela Vista Odontologia, "Vila Exemplo/SP")
 ## Semântica do gabarito
 
 - **`must_find`:** existe achado com o `check_id`, severidade ≥ `min_severity` e evidência que cite o arquivo (ou parte dele).
-- **`must_not_flag`:** **não** existe achado com o `check_id` e severidade ≥ `MELHORIA` cuja evidência **primária** (a primeira) cite o arquivo; evidências seguintes (por exemplo, o trecho correto citado como contraste) não contam; com `match`, a evidência primária também precisa conter o termo.
+- **`must_not_flag`:** **não** existe achado com o `check_id` e severidade ≥ `MELHORIA` cuja evidência **primária** (a primeira) cite o arquivo; evidências seguintes (por exemplo, o trecho correto citado como contraste) não contam; com `match`, a evidência primária também precisa conter o termo; com `title_match`, o **título** do achado precisa conter o termo (o achado pode mostrar o trecho correto como evidência sem acusá-lo).
 - Os `min_severity` seguem as **referências**. Em especial: o segredo do `.env` é um valor com marcador explícito de falso (`FAKE-…`), portanto **`MELHORIA`**, não `CRITICO` (SPEC §11: formato que não dispara o *secret scanning* do GitHub; decisão registrada em `docs/DECISIONS.md`).
 
 ## Problemas plantados (28) — as 15 áreas têm ao menos um
@@ -61,7 +61,7 @@ Site estático **fictício** (Sorriso Bela Vista Odontologia, "Vila Exemplo/SP")
 | OK05 | `CRO-C08` | `contato.html` | Link `wa.me/5511987654321?text=…` no formato oficial, com mensagem codificada. |
 | OK06 | `PERF-C05` | `contato.html` (trecho: `contato.svg`) | Imagem do cabeçalho com `width` e `height`. |
 | OK07 | `PERF-C04` | `index.html` (trecho: `g1.svg|g2.svg|g3.svg`) | `loading="lazy"` apenas na galeria abaixo da dobra, com dimensões declaradas. |
-| OK08 | `API-C04` | `vercel.json` (trecho: `nosniff`) | `X-Content-Type-Options: nosniff` presente. |
+| OK08 | `API-C04` | `vercel.json` (título: `X-Content-Type-Options\|nosniff`) | `X-Content-Type-Options: nosniff` presente; só viola um achado cujo **título** acuse a falta dele (achado sobre outros cabeçalhos ausentes não viola). |
 | OK09 | `SEO-C07` | `dicas.html` | Título único e descritivo (também em `index.html`). |
 | OK10 | `SEC-C01` | `js/analytics.js` | IDs de medição são públicos por natureza; não são segredos. |
 

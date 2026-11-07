@@ -8,6 +8,7 @@
 - `tests/compare.mjs` (recall de `must_find`, `must_not_flag` apontados, achados fora do gabarito), `tests/run-fixture.sh` (`--prepare-only`, `--compare`) e `tests/pipeline.test.mjs` (8 testes sem modelo).
 - **Teste real executado pelo usuário** (`tests/run-fixture.sh`): 65 achados, recall de `must_find` **25/28 = 89,3%** (meta 80%), 1 `must_not_flag` apontado (falso positivo do comparador), 5 críticos, 84 itens não testados, US$ 2,67 e 3 min 42 s. Detalhes e causas em `docs/DECISIONS.md`.
 - **Opções A, B e D aplicadas após o teste real (decisão do usuário):** `compare.mjs` passou a usar só a evidência **primária** no `must_not_flag`; a fixture agora **carrega o `gtag.js`** (envio real da PII em `ANL-C08`); a referência `08-performance-cwv.md` deixou de sobrepor `PERF-C03` e `PERF-C04` (lazy na imagem LCP é só `PERF-C04`). Opção C (`API-C08`) **não** aplicada. **2º teste real:** `must_find` **28/28 = 100%**, 1 `must_not_flag` (`OK08`, falso positivo do `match` do gabarito), US$ 3,29; ver `docs/DECISIONS.md`.
+- **Opção E aplicada:** `must_not_flag` aceita `title_match` (termos no título do achado); `OK08` usa `title_match: X-Content-Type-Options|nosniff`. Com o comparador novo, a 2ª execução real fica **28/28 e 0 `must_not_flag` → APROVADO**.
 - `tests/run-fixture.sh`: logs do harness movidos para fora da cópia (apareciam como "alteração no alvo").
 
 ### Etapa 7 — Coleta, doctor e proteção

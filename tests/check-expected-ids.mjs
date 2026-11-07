@@ -30,6 +30,7 @@ function verify(kind, e) {
     const text = readFileSync(file, "utf8");
     if (!e.match.split("|").some((t) => text.includes(t))) problems.push(`${kind} ${e.id}: termo "${e.match}" não aparece em ${e.file}`);
   }
+  if (e.title_match !== undefined && (typeof e.title_match !== "string" || !e.title_match.trim())) problems.push(`${kind} ${e.id}: title_match inválido`);
   if (e.min_severity && !SEV.includes(e.min_severity)) problems.push(`${kind} ${e.id}: severidade inválida ${e.min_severity}`);
   rows.push([kind, e.id, e.check_id, checks.get(e.check_id) ?? "—", e.file, e.min_severity ?? "—"]);
 }

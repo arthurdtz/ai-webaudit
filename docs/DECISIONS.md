@@ -254,3 +254,33 @@ Aprovado sem ajustes. Decisões a.1–a.6, b (agrupamento SPEC §4.2), c (lock +
 - Teste real do hook em sessão do Claude Code (acima). `tests/compare.mjs` e `tests/run-fixture.sh` ainda não existem (Etapas 8/10).
 - `collect-local` não sobe o servidor do alvo nem roda o build: isso é do orquestrador (com confirmação única). `npm run dev` não pronto → usar `serve-static.mjs` para estáticos.
 - Não coletados nesta etapa: INP (só campo), CrUX (manual), `npm audit` e histórico git completo além de 200 commits (a skill roda `npm audit` com confirmação).
+
+## Etapa 8 — Skill `audit` e primeiro teste (2026-11-07)
+
+### Resultado do teste real: NÃO EXECUTADO
+- **`claude -p` falhou com `Failed to authenticate: OAuth session expired and could not be refreshed`** (testado antes e depois de escrever a skill). Sem autenticação não há execução headless de `/ai-webaudit:audit` nem do teste de hook em sessão real. Conforme o prompt da etapa, **não há números de recall/`must_not_flag` reais**; o teste fica **aguardando o usuário**: `tests/run-fixture.sh` (ou `--prepare-only`), depois colar o resultado.
+- O checkpoint (Etapa 1) e o teste da Etapa 1 confirmam que `claude -p` executa skills de plugin via `--plugin-dir` (sem `--bare`).
+- **Ainda não verificados em sessão real** (todos dependem da auditoria rodar): recusa da skill quando o diretório atual é o plugin (só o `lock.mjs acquire` foi testado: exit 3); `git status` limpo no alvo após a auditoria; o hook bloqueando `Write`/`Bash` de verdade (inclusive de dentro de um subagente); a fidelidade dos subagentes ao contrato JSON; `model: sonnet` × qualidade.
+
+### O que foi testado SEM modelo (22 testes passando: 14 do guard + 8 do pipeline)
+- `consolidate.mjs`: IDs `WA-<PREFIXO>-<NNN>` por prefixo, ordenação (severidade → esforço → área), schema por achado, regra do CRÍTICO, rejeição de achado inválido (vai para "não testado"), recuperação de JSON com ruído, JSON quebrado ignorado, deduplicação (mesmo `check_id` + arquivo), `related_ids` nos dois sentidos e relacionados órfãos, segredo não mascarado reprovando a validação, `report.md` com as 8 seções, `.webaudit/latest`.
+- `compare.mjs`: gabarito perfeito → 28/28 e APROVADO; recall < 80% → REPROVADO (detecta `MISSING`, `LOW_SEVERITY`, `WRONG_FILE`); `must_not_flag` apontado → REPROVADO; `match` distingue o erro do acerto no mesmo arquivo.
+- Verificado também com os `raw/` reais da cópia da fixture (Etapa 7): `consolidate` agregou ferramentas (`axe-core` 4.14.0, `lighthouse` 13.6.0, `collect-*`) e renderizou o relatório.
+
+### Decisões
+- **Fases 5 e 6 viraram script** (`scripts/consolidate.mjs` + `scripts/lib/report.mjs`), extra em relação à SPEC §3.3: deduplicação, numeração, validação e relatório são mecânicos e precisam ser **reprodutíveis e testáveis sem modelo**. O orquestrador só delega, grava as respostas dos subagentes e chama o script.
+- **Dois arquivos de entrada gravados pelo orquestrador** na Fase 0/2: `run.json` (`run_id`, `skill`, `arguments`, `target_path`, `collection_modes`) e `areas.json` (`areas_selected`, `areas_excluded`, `subagents`).
+- **Deduplicação mecânica** só por `check_id` + arquivo da primeira evidência; causa raiz entre áreas é via `related_check_ids` dos subagentes (julgamento deles). Severidade só sobe na fusão se a natureza for a mesma.
+- **Achado inválido não é perdido em silêncio:** vai para `not_tested` com o motivo e para `consolidation.json` (`rejected`). **Sem coleta local**, as verificações que dependem dela (`PERF-C01`, `A11Y-C01`, `A11Y-C08`, `QA-C05`, `QA-C06`, `QA-C12`) entram em "não testado" e `lighthouse`/`axe-core`/`playwright` aparecem como `skipped` em `tools`.
+- **Resumo executivo determinístico** (contagens, críticos, áreas, itens não testados, aviso) — sem prosa livre do modelo, para nunca afirmar "pronto/sem problemas/conforme".
+- **Skill:** `disable-model-invocation: true` (só o usuário dispara); `allowed-tools` apenas pré-aprova `node`/`bash` dos scripts do plugin (a doc: `allowed-tools` **não restringe**). Não há `hooks` no frontmatter: a proteção é o hook do plugin + lock (checkpoint c).
+- **`${CLAUDE_PLUGIN_ROOT}` só é expandido no corpo da skill/agente**, não em `references/00-orchestrator.md`: o orquestrador doc usa `<PLUGIN_ROOT>`/`<ALVO>`/`<RUN>` e a skill informa o caminho. As skills seguintes só repetem o que for específico.
+- **Confirmação única da coleta local:** se não houver como perguntar (modo não interativo) ou a resposta for "não", a skill **trata como `--static-only`**. A confirmação lista: comandos de build/servidor, o **efeito colateral** do build (saída fora de `.webaudit/`), `npm audit` (envia dependências ao npm) e o `doctor.sh`.
+- `tests/run-fixture.sh`: `--prepare-only` (copia a fixture, `git init`/commit e imprime os comandos manuais), `--compare <findings.json>`, e execução completa; checa `git status` limpo e HEAD inalterado; saída 3 = sem autenticação, 4 = sem `findings.json`. Respeita `WEBAUDIT_MAX_BUDGET` (`--max-budget-usd`).
+
+### Para o teste manual (pendência do usuário)
+```bash
+cd /root/projects/ai-webaudit && tests/run-fixture.sh          # após `claude` autenticado
+# ou: tests/run-fixture.sh --prepare-only   → imprime os comandos para rodar na mão
+```
+Cole a saída (principalmente o bloco "Gabarito") para registrar o resultado real e o que falhou — sem ajustar nada antes.

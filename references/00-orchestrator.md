@@ -109,3 +109,61 @@ Ordenação: severidade (CRÍTICO → OPCIONAL), depois `effort` (P → G), depo
 ## 8. Proibições permanentes (inclusive no `/fix`)
 
 Deploy, push, commit sem autorização explícita, alterar banco de dados, expor segredos, enviar dados privados a serviços externos sem necessidade, instalar dependências no projeto alvo, qualquer requisição remota que não seja GET, envio de formulários, scanners, fuzzing, força bruta e payloads de ataque.
+
+## 9. Procedimento operacional (comandos de cada fase)
+
+Comum a `audit`, `pre-launch` e `optimize`. A skill informa `<PLUGIN_ROOT>` (caminho absoluto do plugin, já expandido no texto da skill). **Este arquivo não expande variáveis**: substitua `<PLUGIN_ROOT>`, `<ALVO>`, `<RUN>` (= `<ALVO>/.webaudit/runs/<RUN_ID>`) e `<RUN_ID>` pelos valores reais. Nunca leia as referências `01`–`15` na sessão principal.
+
+**Regra de ouro:** qualquer que seja o resultado, **termine sempre com `node <PLUGIN_ROOT>/scripts/lock.mjs release <ALVO>`** (Fase 6, inclusive em falha ou cancelamento). Sem o `release`, o modo leitura fica ativo até expirar (2 h).
+
+### Fase 0 — Preparação
+1. `ALVO` = saída de `git rev-parse --show-toplevel` no diretório atual; sem git, o próprio diretório (`pwd`).
+2. `RUN_ID` = `date +%Y-%m-%d_%H%M`.
+3. `node <PLUGIN_ROOT>/scripts/lock.mjs acquire <ALVO> --skill <skill> --run <RUN_ID>`
+   - exit **3**: o alvo é o diretório do plugin → **pare**, explique ("a auditoria roda no projeto aberto; abra o Claude Code na pasta do site com `claude --plugin-dir <PLUGIN_ROOT>`") e **não crie nada**;
+   - exit **4**: já existe lock válido (outra auditoria?) → pergunte ao usuário; não use `--force` sem pedido explícito;
+   - exit 0: lock criado (modo leitura ativo), `.webaudit/` no `.git/info/exclude`.
+4. `mkdir -p <RUN>/raw <RUN>/agents`
+5. Grave `<RUN>/run.json` (Write): `{"run_id":"<RUN_ID>","skill":"<skill>","arguments":"<argumentos como digitados>","target_path":"<ALVO>","collection_modes":["estatica"],"started_at":"<ISO>"}`
+
+### Fase 1 — Reconhecimento
+`node <PLUGIN_ROOT>/scripts/detect-stack.mjs <ALVO> --out <RUN>/context.json`. Leia o `context.json` (sinais em `signals`, `commands`, `site_type`, `pages`, `api`, `analytics`).
+
+### Fase 2 — Seleção
+Aplique a matriz (§2) aos `signals` e grave `<RUN>/areas.json`: `{"areas_selected":["SEO",…],"areas_excluded":[{"area":"LOC","reason":"…"}],"subagents":["search-visibility",…]}`. Toda área fora de `areas_selected` precisa estar em `areas_excluded` com motivo objetivo.
+
+### Fase 3 — Coleta
+- **Sempre:** `node <PLUGIN_ROOT>/scripts/collect-static.mjs <ALVO> <RUN>`.
+- **Ativa-local** (omitida com `--static-only`; `--no-build` impede só o build): prepare **uma única confirmação** (pergunte uma vez, listando tudo): (a) comandos de build/servidor que serão executados (`context.commands.build`/`dev`/`preview`, ou `serve-static.mjs` para site estático sem build); (b) o **efeito colateral**: o build do projeto grava a saída (ex.: `dist/`) **fora de `.webaudit/`**; (c) `npm audit` (envia a lista de dependências ao registro do npm), se houver `package-lock.json`; (d) `doctor.sh` precisa estar ok (Lighthouse/axe/capturas). **Sem como perguntar (modo não interativo) ou resposta "não": trate como `--static-only`** e siga.
+  1. Se não houver servidor pronto: site estático → `node <PLUGIN_ROOT>/scripts/serve-static.mjs <ALVO> 0 > <RUN>/raw/server.log 2>&1 &` (guarde o PID com `echo $! > <RUN>/raw/server.pid`; leia `LISTENING http://127.0.0.1:<porta>` do log); com `package.json`: `<gerenciador> run build` (se aprovado e sem `--no-build`) e depois `<gerenciador> run preview`/`start` em segundo plano; descubra a URL no log.
+  2. Espere o servidor responder (até 60 s). **Se não subir:** registre o motivo e siga só com a coleta estática.
+  3. `node <PLUGIN_ROOT>/scripts/collect-local.mjs <URL-localhost> <RUN>`.
+  4. **Encerre o servidor** pelo PID salvo (`kill $(cat <RUN>/raw/server.pid)`); nunca `pkill -f`.
+  5. Se aprovado e há `package-lock.json`: `npm audit --json > <RUN>/raw/npm-audit.json || true` (**nunca** `npm install`/`audit fix`).
+  6. Atualize `collection_modes` em `run.json` (acrescente `ativa-local`).
+- **Ativa-remota** (só com `--url`): `node <PLUGIN_ROOT>/scripts/collect-remote.mjs <URL> <RUN>` (só GET, ≤ 20 páginas, 1 req/s). Acrescente `ativa-remota` em `collection_modes`. Informe os limites ao usuário; não é necessária nova confirmação (o `--url` é o opt-in).
+- Falha de ferramenta: o coletor registra o erro em `raw/`; **nunca** estime o dado. Continue.
+
+### Fase 4 — Análise (subagentes)
+Para cada subagente necessário (§3), **em uma única mensagem e em paralelo**, chame a ferramenta `Agent` com `subagent_type: "ai-webaudit:<subagente>"` e este texto (preenchido):
+```
+Auditoria <skill>. Siga o contrato do seu agente.
+target_path: <ALVO>
+context_path: <RUN>/context.json
+raw_dir: <RUN>/raw
+areas: <prefixos selecionados deste subagente>
+references: <caminhos ABSOLUTOS de <PLUGIN_ROOT>/references/NN-*.md, só das áreas selecionadas>
+shared: <PLUGIN_ROOT>/references/shared/severity.md, <PLUGIN_ROOT>/references/shared/agent-output.md, <PLUGIN_ROOT>/references/shared/findings.schema.json
+skill: <skill>
+objective: <objetivo do usuário, se optimize>
+modos de coleta executados: <collection_modes>; ferramentas que falharam ou foram puladas: <lista>
+Responda somente com o JSON do contrato.
+```
+Grave **a resposta literal** de cada subagente em `<RUN>/agents/<subagente>.json` (Write). Resposta que não seja JSON: grave mesmo assim (o consolidador tenta recuperar) e, se estiver vazia, reenvie **uma vez**.
+
+### Fases 5 e 6 — Consolidação e relatório
+`node <PLUGIN_ROOT>/scripts/consolidate.mjs <RUN>` valida cada achado contra o schema, deduplica, resolve `related_check_ids`, numera os IDs finais, ordena, valida o `findings.json` (`validate-findings.mjs`), gera `report.md` e atualiza `<ALVO>/.webaudit/latest`. Leia a saída (contagens, `rejected`, `errors`, `orphan_related`). **Se a validação falhar**, não declare sucesso: mostre os erros ao usuário. Depois **sempre**: `node <PLUGIN_ROOT>/scripts/lock.mjs release <ALVO>`.
+Você pode acrescentar ao `report.md` (Write em `<RUN>/`) observações de **trade-offs** que o consolidador não detecta, sem alterar os achados.
+
+### Fase 7 — Resposta no chat (curta)
+Em pt-BR: (1) uma linha com o projeto, os modos de coleta e a contagem por severidade; (2) os achados **CRÍTICOS** (ID + título), no máximo 6; (3) o que **não** foi testado (contagem + principais motivos, ex.: coleta local não executada); (4) caminho do relatório: `<RUN>/report.md`; (5) próximo comando sugerido, ex.: `/ai-webaudit:fix WA-SEC-001 WA-PRIV-002`. **Nunca** diga "site pronto", "sem problemas", "seguro" ou "conforme".

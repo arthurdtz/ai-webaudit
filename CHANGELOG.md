@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Etapa 8 — Skill `audit` e teste da fixture
+- `skills/audit/SKILL.md` (só o específico do `audit`); fluxo comum e comandos de cada fase em `references/00-orchestrator.md` §9.
+- `scripts/consolidate.mjs` + `scripts/lib/report.mjs`: Fases 5 e 6 mecânicas (valida cada achado, deduplica, numera IDs, liga `related_ids`, valida `findings.json`, gera `report.md` e `.webaudit/latest`).
+- `tests/compare.mjs` (recall de `must_find`, `must_not_flag` apontados, achados fora do gabarito), `tests/run-fixture.sh` (`--prepare-only`, `--compare`) e `tests/pipeline.test.mjs` (8 testes sem modelo).
+- **Pendente:** execução real de `/ai-webaudit:audit --static-only` na fixture (o `claude` estava sem autenticação); ver `docs/DECISIONS.md`.
+
 ### Etapa 7 — Coleta, doctor e proteção
 - `scripts/guard.mjs` + `hooks/hooks.json` (hook `PreToolUse`) e `scripts/lock.mjs` (`acquire`/`release`/`status`): proteção do modo leitura por lock (`.webaudit/.lock`, expira em 2 h), falha fechada com lock ativo. Testes em `tests/guard/guard.test.mjs` (14 casos).
 - `scripts/doctor.sh` (`--install`), `scripts/detect-stack.mjs` (gera `context.json`), `scripts/collect-static.mjs`, `scripts/collect-local.mjs` (Lighthouse, axe, capturas 360/768/1440, console, links), `scripts/collect-remote.mjs` (GET, ≤ 20 páginas, 1 req/s) e auxiliar `scripts/serve-static.mjs`.

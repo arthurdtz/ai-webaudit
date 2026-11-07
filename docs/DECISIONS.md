@@ -212,3 +212,45 @@ Aprovado sem ajustes. Decisões a.1–a.6, b (agrupamento SPEC §4.2), c (lock +
 ### Pendências
 - `tests/compare.mjs` e `tests/run-fixture.sh` (Etapas 8/10) ainda não existem; a semântica do gabarito está descrita em `expected-findings.json` (`scoring.semantics`).
 - A fixture usa uma landing page; **WordPress/Next/Astro/Vite** não são exercitados.
+
+## Etapa 7 — Coleta, doctor e proteção (2026-11-07)
+
+### Proteção do modo leitura (SPEC §9; checkpoint c)
+- **Implementada a estratégia aprovada: hook do plugin + lock.** `hooks/hooks.json` (`PreToolUse`, matcher `Write|Edit|MultiEdit|NotebookEdit|Bash`) chama `scripts/guard.mjs`. **O hook roda em toda sessão em que o plugin está carregado**, por isso o guard é barato e **não faz nada sem lock válido** (exit 0).
+- **Lock** (`<alvo>/.webaudit/.lock`, JSON com `created_at`): válido por **2 h**, ilegível-recente = inválido. Criado/removido por `scripts/lock.mjs acquire|release|status` (Fase 0/6). `acquire` também grava `.webaudit/` em `.git/info/exclude` (sem tocar `.gitignore`) e **recusa** o diretório do plugin como alvo (exit 3).
+- **Falha fechada com lock ativo:** erro interno, entrada ilegível ou lock corrompido → **exit 2** (bloqueia). Sem lock ou lock expirado → permite tudo. Bloqueio = exit 2 + motivo em stderr (a doc: outros códigos não bloqueiam).
+- **`onFailure: "block"` NÃO é usado:** como o hook roda em todas as sessões com o plugin, um `node` ausente ou timeout bloquearia `Write`/`Bash` fora de qualquer auditoria. Limitação aceita e documentada: timeout/`node` ausente **não** bloqueia (fail-open nesses casos).
+- **Regras com lock:** `Write/Edit/MultiEdit/NotebookEdit` só dentro de `.webaudit/` (caminhos relativos, `..`, links simbólicos e `.webaudit` simbólico para fora são tratados; **o próprio `.lock` não pode ser sobrescrito**). **Bash** é analisado por um *parser* de shell aproximado (aspas, `;`/`&&`/`||`/`|`, `$(…)`/crases, `bash -c`, `eval`, heredoc, redirecionamentos, `cd` rastreado, `xargs`, `env`/`timeout`/`nohup`…):
+  - **git**: lista de PERMISSÃO só de leitura (`log`, `show`, `status`, `diff`, `rev-parse`, `ls-files`, `grep`, `blame`…; `branch`/`tag`/`config`/`remote` só em modo consulta); todo o resto bloqueado (`commit`, `push`, `reset`, `clean`, `checkout`, `stash`, `add`…).
+  - **escrita/remoção** (`rm`, `mv`, `cp`, `mkdir`, `touch`, `tee`, `truncate`, `chmod`…) e **redirecionamentos**: só com destino dentro de `.webaudit/` (`cp`/`install`/`ln`: só o destino; fontes podem ser lidas); `sed -i`, `perl -i`, `awk -i inplace`, `dd of=`, `find -delete/-exec`, `tar`/`unzip`: bloqueados.
+  - **pacotes**: `npm|pnpm|yarn|bun` `install|add|ci|update|remove|link|exec|publish…` e `audit fix`, `npx|pnpx|bunx`, `pip|gem|composer|cargo|go install`, gerenciadores de sistema: bloqueados. **Permitidos:** `npm run`, `npm test`, `npm start`, `npm ls`, `npm audit` (sem `fix`).
+  - **deploy/infra/rede**: `vercel`, `netlify`, `firebase`, `wrangler`, `aws`, `gcloud`, `az`, `kubectl`, `docker`, `scp`, `rsync`, `ssh`, `nc`…; `curl` com método ≠ GET/HEAD ou com dados; `wget` sem `-O`; `gh` fora de consulta.
+  - **código inline e scripts**: `node -e`, `python -c`, `bash -` etc. bloqueados; **`node`/`bash`/`python` só executam arquivos DENTRO do plugin** (`scripts/…`); scripts do projeto auditado só via `npm run` (com a confirmação da SPEC §8.2).
+  - Comando dinâmico (`$CMD`, destino com `$VAR`) → bloqueia. **Comandos desconhecidos são permitidos** (camada de proteção, **não sandbox**).
+- **Consequência para a Fase 3:** `npm run build`/`dev` do alvo é permitido (SPEC §8.2) e **grava a saída de build no alvo, fora de `.webaudit/`** (ex.: `dist/`). Registrar isso na confirmação ao usuário (Etapa 8).
+- O hook dispara também dentro de subagentes (`agent_id` no payload); as mesmas regras valem.
+- **Não verificado em sessão real do Claude Code:** `claude -p` falhou com *OAuth session expired* ao tentar o teste ponta a ponta (Write fora de `.webaudit/` sendo recusado de verdade). Verificado: o script com a entrada JSON do hook (14 testes), `claude plugin validate` e, na Etapa 1, que hook de `hooks/hooks.json` dispara em `-p`. **Pendência da Etapa 8:** teste real com lock ativo, inclusive tentando `Write`/`Bash` de dentro de um subagente.
+
+### Dependências e ambiente
+- Fixadas: `lighthouse` **13.6.0**, `playwright` **1.65.0**, `@axe-core/playwright` **4.14.0** (`ajv` 8.20.0, `ajv-formats` 3.0.1). **Lighthouse 13 exige Node ≥ 22.19** → `engines` em `scripts/package.json` e verificação no `doctor.sh`.
+- **A página oficial de pontuação do Lighthouse documentava os pesos do Lighthouse 10** (referência 08). A versão instalada é a **13.6.0**; os pesos dela **não foram verificados**. Os JSON de `raw/` registram `lighthouse_version`; o subagente `performance` deve citar a nota como laboratório e não presumir pesos.
+- `playwright install chromium` em headless usa o **`chrome-headless-shell`**: o `doctor.sh` faz **teste funcional** (iniciar o navegador), não só checa o executável (a primeira instalação foi interrompida e deixou só o Chromium completo; o teste funcional pegou isso).
+- O download do Chromium é lento nesta rede (~125 MB do *headless shell*); `npm install` falhou uma vez por erro de rede e passou com `--fetch-retries`.
+- WSL: o `doctor.sh` **não** roda `install-deps` sozinho; mostra o comando.
+
+### Coletores
+- **Todos** validam que o `<run>` está dentro de `<alvo>/.webaudit/` **antes** de criar qualquer diretório (bug corrigido nos testes: a primeira versão criava `/tmp/fora`). Saída: `{tool, version, command, started_at, finished_at, status, error?, data}`; falha = erro registrado, **nunca** dado estimado. Evidências de segredo e cookies **mascaradas**.
+- **`collect-static`:** inventário, metadados por página (HTML no disco), robots/sitemap/`llms.txt`/`security.txt`, headers **declarados** (Vercel, Netlify, `_headers`, `.htaccess`, nginx, `next.config`), segredos (árvore + histórico git dos últimos 200 *commits*, só leitura, só valor mascarado), variáveis com prefixo público. Não replica buscas que os subagentes fazem com `Grep`.
+- **`collect-local`:** só `localhost`/`127.0.0.1`/`::1`; crawl por GET (máx. 20 páginas), 3 viewports, axe (360 e 1440), console, requisições/cookies **antes de qualquer interação**, alvos < 24 px, comparação HTML bruto × renderizado, Lighthouse mobile e desktop em até 3 páginas (resumo enxuto rotulado como dado de laboratório).
+- **`collect-remote`:** **só GET**, ≤ 20 páginas, **1 req/s** (medido: 5 requisições em 4,8 s), UA `AI-WebAudit/0.1.0`, redirecionamento **só dentro do mesmo site** (mesmo host, `www.` ou esquema), **recusa** `localhost` e redes privadas (inclusive por resolução DNS). **`robots.txt` não é imposto** (o dono optou com `--url`; páginas restritas são só marcadas `restricted_by_robots`). Inclui sonda de 404 (uma GET), `http`→`https` e **handshake TLS** (validade do certificado, para `OPS-C06`; não é requisição HTTP). **O Lighthouse remoto carrega os subrecursos da página e não obedece ao limite de 1 req/s** (documentado).
+- **`serve-static.mjs`** (extra, não listado na SPEC §3.3): servidor **só em 127.0.0.1** para sites sem build; **nunca serve arquivos ocultos** (`.env`, `.git`, `.webaudit`), exceto `.well-known`; corrigido nos testes (a primeira versão servia `.env`).
+
+### Teste rápido (cópia da fixture em `/tmp/webaudit-test-*`)
+- `detect-stack`: HTML estático, `pt-BR`, **negócio local**, Vercel, API presente, 2 formulários, GA4 + Pixel, `.env`. `collect-static`: 6 saídas `ok` (segredo do `.env` como `marker_fake` rastreado e **não ignorado**; `X-XSS-Protection` e `nosniff` declarados; robots bloqueia os três agentes de busca de IA; sitemap lista URL `noindex`; `security.txt` vencido; canonical de staging e `lorem ipsum` detectados).
+- `collect-local` (63 s): 5 páginas, 1 link quebrado (`sobre.html`), 15 capturas, 10 relatórios axe (`image-alt`, `meta-viewport`, `html-has-lang`), Lighthouse 13.6.0 mobile/desktop sem erro, overflow horizontal em 360 px, requisições a `connect.facebook.net` antes de interação.
+- `collect-remote` contra `https://example.com/` (5 GETs): ok. Recusou `localhost` e `10.0.0.5`.
+
+### Pendências
+- Teste real do hook em sessão do Claude Code (acima). `tests/compare.mjs` e `tests/run-fixture.sh` ainda não existem (Etapas 8/10).
+- `collect-local` não sobe o servidor do alvo nem roda o build: isso é do orquestrador (com confirmação única). `npm run dev` não pronto → usar `serve-static.mjs` para estáticos.
+- Não coletados nesta etapa: INP (só campo), CrUX (manual), `npm audit` e histórico git completo além de 200 commits (a skill roda `npm audit` com confirmação).

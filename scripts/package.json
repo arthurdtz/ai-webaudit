@@ -4,9 +4,17 @@
   "private": true,
   "description": "Dependências e scripts do plugin AI WebAudit (nunca instaladas no projeto alvo).",
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=22.19"
+  },
   "dependencies": {
+    "@axe-core/playwright": "4.14.0",
     "ajv": "8.20.0",
-    "ajv-formats": "3.0.1"
+    "ajv-formats": "3.0.1",
+    "lighthouse": "13.6.0",
+    "playwright": "1.65.0"
+  },
+  "scripts": {
+    "test": "node --test ../tests/guard/guard.test.mjs"
   }
 }

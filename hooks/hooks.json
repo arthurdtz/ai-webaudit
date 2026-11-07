@@ -1,0 +1,17 @@
+{
+  "description": "AI WebAudit: protege o modo leitura (scripts/guard.mjs). Só atua enquanto existir .webaudit/.lock válido no projeto auditado; sem lock, não faz nada.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/guard.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

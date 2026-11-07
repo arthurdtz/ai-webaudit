@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Etapa 7 — Coleta, doctor e proteção
+- `scripts/guard.mjs` + `hooks/hooks.json` (hook `PreToolUse`) e `scripts/lock.mjs` (`acquire`/`release`/`status`): proteção do modo leitura por lock (`.webaudit/.lock`, expira em 2 h), falha fechada com lock ativo. Testes em `tests/guard/guard.test.mjs` (14 casos).
+- `scripts/doctor.sh` (`--install`), `scripts/detect-stack.mjs` (gera `context.json`), `scripts/collect-static.mjs`, `scripts/collect-local.mjs` (Lighthouse, axe, capturas 360/768/1440, console, links), `scripts/collect-remote.mjs` (GET, ≤ 20 páginas, 1 req/s) e auxiliar `scripts/serve-static.mjs`.
+- Bibliotecas em `scripts/lib/` (lock, varredura de arquivos, segredos com mascaramento, extração de HTML, Lighthouse).
+- Dependências fixadas em `scripts/package.json`: `lighthouse` 13.6.0, `playwright` 1.65.0, `@axe-core/playwright` 4.14.0 (Node ≥ 22.19).
+
 ### Etapa 6 — Subagentes e fixture
 - `agents/` com os 8 subagentes (`search-visibility`, `ai-visibility`, `conversion`, `performance`, `accessibility`, `privacy`, `security`, `release-qa`): `tools: Read, Grep, Glob`, `model: sonnet`.
 - `references/shared/agent-output.md`: contrato de saída JSON dos subagentes (sem `id`/`fix_status`; `related_check_ids`; `not_tested`; `areas_not_applicable`; `errors`).

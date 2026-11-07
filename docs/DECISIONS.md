@@ -389,3 +389,7 @@ Mesmo comando, mesmo modelo (`claude-sonnet-5-5`), nada alterado entre os ajuste
 - A reversão de um fix que falhou é feita **pelo modelo** com `Edit` (o guard bloqueia `git checkout --`/`restore`/`stash` para não descartar trabalho do usuário).
 - `validado` só é gravado quando o `validation_criteria` pôde ser conferido por leitura/busca ou por comando do projeto; critérios que exigem Lighthouse/axe/produção ficam `corrigido`.
 - Não exercitado em sessão real: as três skills, o modo correção sob o hook real, `AskUserQuestion` (confirmação), criação de branch, comportamento dos subagentes com `objective`.
+
+## Etapa 9 — Resultado do teste real (informado pelo usuário em 2026-11-07)
+- `tests/run-skills.sh`: **APROVADO**, segundo o usuário. **Só o veredito foi informado**: a saída detalhada (custo, achados, IDs escolhidos, `git diff`, branch, `fix-log.md`) **não foi colada** e este registro não a reproduz. Se houver divergências ou números a registrar, colar a saída e anexar aqui.
+- Pelo critério do próprio script, "aprovado" significa: veredito e checklist do `pre-launch`; só áreas do objetivo e plano em fases no `optimize`; os 3 achados (`QA-C11`, `A11Y-C03`, `SEO-C06`) com `fix_status` `validado`/`corrigido` e no `fix-log.md`; nenhum commit novo; lock liberado; e os 3 achados ausentes no `audit` seguinte.
